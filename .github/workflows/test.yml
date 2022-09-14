@@ -1,0 +1,34 @@
+name: test
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: test (features ${{ matrix.features }})
+    strategy:
+      fail-fast: false
+      matrix:
+        features:
+          [
+            "",
+            "sync",
+            "async",
+            "rayon",
+            "sync,async",
+            "sync,rayon",
+            "async,rayon",
+            "full",
+          ]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Test
+        run: >-
+          cargo test
+          --no-default-features
+          --features "${{ matrix.features }}"
+          --all-targets
