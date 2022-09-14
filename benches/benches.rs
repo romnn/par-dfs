@@ -1,10 +1,11 @@
 use criterion::{
     black_box, criterion_group, criterion_main, BenchmarkGroup, Criterion, SamplingMode,
 };
+use par_dfs::sync::*;
+use std::collections::VecDeque;
 use std::convert::Infallible;
 use std::iter::Iterator;
 use std::time::Duration;
-use par_dfs::sync::*;
 
 /// Enumerates the numbers that reach the given starting point when iterating
 /// the [Collatz] map, by depth-first search over the [graph] of their orbits.
@@ -12,52 +13,54 @@ use par_dfs::sync::*;
 /// [Collatz]: https://en.wikipedia.org/wiki/Collatz_conjecture
 /// [graph]: https://en.wikipedia.org/wiki/File:Collatz_orbits_of_the_all_integers_up_to_1000.svg
 
-#[cfg(feature = "rayon")]
-pub mod custom {
-    use par_dfs::sync::*;
+type Queue = VecDeque<(usize, Result<u32, Infallible>)>;
+
+pub mod custom_dfs {
+    use super::*;
+    // use par_dfs::sync::*;
+    use std::collections::VecDeque;
     use std::convert::Infallible;
 
-    type StackType = Vec<(usize, Result<u32, Infallible>)>;
+    // #[derive(Clone, Debug)]
+    // pub struct Stack {
+    //     inner: StackType,
+    // }
+
+    // impl Queue for Stack {
+    //     fn len(&self) -> usize {
+    //         self.inner.len()
+    //     }
+
+    //     fn split_off(&mut self, at: usize) -> Self {
+    //         let split = self.inner.split_off(at);
+    //         Self { inner: split }
+    //     }
+    // }
 
     #[derive(Clone, Debug)]
-    pub struct Stack {
-        inner: StackType,
-    }
-
-    impl Queue for Stack {
-        fn len(&self) -> usize {
-            self.inner.len()
-        }
-
-        fn split_off(&mut self, at: usize) -> Self {
-            let split = self.inner.split_off(at);
-            Self { inner: split }
-        }
-    }
-
-    #[derive(Clone, Debug)]
-    pub struct CollatzIter {
+    pub struct CollatzDfs {
         max_depth: Option<usize>,
-        stack: Stack,
+        queue: Queue,
     }
 
-    impl CollatzIter {
+    impl CollatzDfs {
         pub fn new<D: Into<Option<usize>>>(start: u32, max_depth: D) -> Self {
             Self {
                 max_depth: max_depth.into(),
-                stack: Stack {
-                    inner: vec![(0, Ok(start))],
-                },
+                queue: VecDeque::from_iter([(0, Ok(start))]),
+                // Stack {
+                //     inner: vec![(0, Ok(start))],
+                // },
             }
         }
     }
 
-    impl Iterator for CollatzIter {
+    impl Iterator for CollatzDfs {
         type Item = Result<u32, Infallible>;
 
         #[inline(always)]
         fn next(&mut self) -> Option<Self::Item> {
-            match self.stack.inner.pop() {
+            match self.queue.pop_back() {
                 Some((depth, Ok(n))) => {
                     if let Some(max_depth) = self.max_depth {
                         if max_depth >= depth {
@@ -67,12 +70,12 @@ pub mod custom {
                     // n can be reached by dividing by two
                     // as long as it doesn't overflow
                     if let Some(even) = n.checked_mul(2) {
-                        self.stack.inner.push((depth, Ok(even)));
+                        self.queue.push_back((depth, Ok(even)));
                     }
 
                     // n can be reached by 3x + 1 iff (n - 1) / 3 is an odd integer
                     if n > 4 && n % 6 == 4 {
-                        self.stack.inner.push((depth, Ok((n - 1) / 3)));
+                        self.queue.push_back((depth, Ok((n - 1) / 3)));
                     }
                     Some(Ok(n))
                 }
@@ -82,28 +85,43 @@ pub mod custom {
         }
     }
 
-    impl HasQueue for CollatzIter {
-        type Queue = Stack;
-        fn queue_mut(&mut self) -> &mut Self::Queue {
-            &mut self.stack
-        }
-        fn queue(&self) -> &Self::Queue {
-            &self.stack
-        }
-    }
-
-    impl GraphIterator<Stack> for CollatzIter {
-        fn from_split(&self, stack: Stack) -> Self {
-            Self {
-                stack,
-                max_depth: self.max_depth,
+    #[cfg(feature = "rayon")]
+    impl par_dfs::sync::par::SplittableIterator for CollatzDfs {
+        fn split(&mut self) -> Option<Self> {
+            let len = self.queue.len();
+            if len >= 2 {
+                let split = self.queue.split_off(len / 2);
+                Some(Self {
+                    queue: split,
+                    max_depth: self.max_depth,
+                })
+            } else {
+                None
             }
         }
     }
+
+    // impl HasQueue for CollatzIter {
+    //     type Queue = Stack;
+    //     fn queue_mut(&mut self) -> &mut Self::Queue {
+    //         &mut self.stack
+    //     }
+    //     fn queue(&self) -> &Self::Queue {
+    //         &self.stack
+    //     }
+    // }
+
+    // impl GraphIterator<Stack> for CollatzIter {
+    //     fn from_split(&self, stack: Stack) -> Self {
+    //         Self {
+    //             stack,
+    //             max_depth: self.max_depth,
+    //         }
+    //     }
+    // }
 }
 
-#[cfg(feature = "rayon")]
-pub use custom::*;
+pub use custom_dfs::*;
 
 #[derive(Clone, Debug)]
 pub struct CollatzNode(pub u32);
@@ -174,6 +192,9 @@ pub mod sync {
     }
 }
 
+const START: u32 = 1;
+const LIMIT: Option<usize> = Some(1_00);
+
 fn configure_group<M>(group: &mut BenchmarkGroup<M>)
 where
     M: criterion::measurement::Measurement,
@@ -181,10 +202,6 @@ where
     group.sample_size(10);
     group.sampling_mode(SamplingMode::Flat);
 }
-
-const START: u32 = 1;
-const LIMIT: Option<usize> = Some(1_00);
-
 
 macro_rules! bench_collatz_sync {
     ($name:ident: $group:literal, $iter:expr) => {
@@ -216,7 +233,8 @@ macro_rules! bench_collatz_sync {
                 format!("parallel ({} threads)", rayon::current_num_threads()),
                 |b| {
                     b.iter(|| {
-                        use rayon::iter::{IntoParallelIterator, ParallelIterator};
+                        use par_dfs::sync::par::IntoParallelIterator;
+                        use rayon::iter::ParallelIterator;
                         iter.clone().into_par_iter().count()
                     })
                 },
@@ -243,6 +261,11 @@ bench_collatz_sync!(
 bench_collatz_sync!(
     bench_collatz_sync_dfs:
     "collatz/sync/dfs", Dfs::<CollatzNode>::new(black_box(START), LIMIT)
+);
+
+bench_collatz_sync!(
+    bench_collatz_sync_custom_dfs:
+    "collatz/sync/customdfs", CollatzDfs::new(black_box(START), LIMIT)
 );
 
 // fn bench_collatz_dfs(c: &mut Criterion) {
@@ -354,6 +377,7 @@ criterion_group!(
     bench_collatz_sync_bfs,
     bench_collatz_sync_fast_bfs,
     bench_collatz_sync_dfs,
-    bench_collatz_sync_fast_dfs
+    bench_collatz_sync_fast_dfs,
+    bench_collatz_sync_custom_dfs
 );
 criterion_main!(collatz);

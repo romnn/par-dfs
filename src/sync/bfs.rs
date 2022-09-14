@@ -8,9 +8,9 @@ pub struct BfsQueue<I, E> {
 }
 
 impl<I, E> Queue for BfsQueue<I, E> {
-    fn len(&self) -> usize {
-        self.inner.len()
-    }
+    // fn len(&self) -> usize {
+    //     self.inner.len()
+    // }
 
     fn split_off(&mut self, at: usize) -> Self {
         let split = self.inner.split_off(at);
@@ -183,115 +183,8 @@ pub mod par {
     use crate::sync::par::*;
     use crate::sync::*;
 
-    // impl<N> HasQueue for Bfs<N>
-    // where
-    //     N: Node,
-    // {
-    //     type Queue = BfsQueue<N, N::Error>;
-    //     fn queue_mut(&mut self) -> &mut Self::Queue {
-    //         &mut self.queue
-    //     }
-    //     fn queue(&self) -> &Self::Queue {
-    //         &self.queue
-    //     }
-    // }
-
-    // impl<N> GraphIterator<BfsQueue<N, N::Error>> for Bfs<N>
-    // where
-    //     N: Node,
-    // {
-    //     fn from_split(&self, queue: BfsQueue<N, N::Error>) -> Self {
-    //         Self {
-    //             queue,
-    //             max_depth: self.max_depth,
-    //         }
-    //     }
-    // }
-
-    // impl<N> rayon::iter::IntoParallelIterator for Bfs<N>
-    // where
-    //     N: Node + Send,
-    //     N::Error: Send,
-    // {
-    //     type Iter = ParallelSplittableIterator<Self>;
-    //     type Item = <Self as Iterator>::Item;
-
-    //     fn into_par_iter(self) -> Self::Iter {
-    //         ParallelSplittableIterator::new(self)
-    //     }
-    // }
-
-    // impl<N> HasQueue for FastBfs<N>
-    // where
-    //     N: FastNode,
-    // {
-    //     type Queue = BfsQueue<N, N::Error>;
-    //     fn queue_mut(&mut self) -> &mut Self::Queue {
-    //         &mut self.queue
-    //     }
-    //     fn queue(&self) -> &Self::Queue {
-    //         &self.queue
-    //     }
-    // }
-
-    // impl<N> GraphIterator<BfsQueue<N, N::Error>> for FastBfs<N>
-    // where
-    //     N: FastNode,
-    // {
-    //     fn from_split(&self, queue: BfsQueue<N, N::Error>) -> Self {
-    //         Self {
-    //             queue,
-    //             max_depth: self.max_depth,
-    //         }
-    //     }
-    // }
-
-    // impl<N> rayon::iter::IntoParallelIterator for FastBfs<N>
-    // where
-    //     N: FastNode + Send,
-    //     N::Error: Send,
-    // {
-    //     type Iter = ParallelSplittableIterator<Self>;
-    //     type Item = <Self as Iterator>::Item;
-
-    //     fn into_par_iter(self) -> Self::Iter {
-    //         ParallelSplittableIterator::new(self)
-    //     }
-    // }
-
     parallel_iterator!(Bfs<Node>);
     parallel_iterator!(FastBfs<FastNode>);
-
-    // impl<N> SplittableIterator for Bfs<N>
-    // where
-    //     N: Node,
-    // {
-    //     fn split(&mut self) -> Option<Self> {
-    //         let len = self.queue.len();
-    //         if len >= 2 {
-    //             let split = self.queue.split_off(len / 2);
-    //             Some(Self {
-    //                 queue: split,
-    //                 max_depth: self.max_depth,
-    //             })
-    //         } else {
-    //             None
-    //         }
-    //     }
-    // }
-
-    // impl<N> rayon::iter::IntoParallelIterator for Bfs<N>
-    // where
-    //     N: Node + Send,
-    //     N::Error: Send,
-    // {
-    //     type Iter = ParallelSplittableIterator<Self>;
-    //     type Item = <Self as Iterator>::Item;
-
-    //     fn into_par_iter(self) -> Self::Iter {
-    //         ParallelSplittableIterator::new(self)
-    //     }
-    // }
 }
 
 #[cfg(feature = "rayon")]
