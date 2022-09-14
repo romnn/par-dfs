@@ -32,14 +32,6 @@ impl<I, E> std::ops::DerefMut for DfsQueue<I, E> {
     }
 }
 
-// impl<I, E> DfsQueue<I, E> {
-//     pub fn split_off(&mut self, at: usize) -> Self {
-//         Self {
-//             inner: self.inner.split_off(at),
-//         }
-//     }
-// }
-
 impl<I, E> DfsQueue<I, E> {
     pub fn new() -> Self {
         Self {
@@ -64,21 +56,16 @@ impl<I, E> ExtendQueue<I, E> for DfsQueue<I, E> {
 #[allow(missing_debug_implementations)]
 #[derive(Clone)]
 pub struct Dfs<N>
-// pub struct Dfs<Q, N>
 where
     N: Node,
-    // Q: Queue // <N, N::Error>,
 {
-    // queue: Q,
     queue: DfsQueue<N, N::Error>,
     max_depth: Option<usize>,
 }
 
-// impl<Q, N> Dfs<Q, N>
 impl<N> Dfs<N>
 where
     N: Node,
-    // Q: Queue<N, N::Error>,
 {
     #[inline]
     pub fn new<R, D>(root: R, max_depth: D) -> Self
@@ -98,14 +85,9 @@ where
     }
 }
 
-// impl<Q, I, E, N> GraphIterator<Q, I, E> for Dfs<Q, N>
-// impl<Q, N> GraphIterator<Q, N, N::Error> for Dfs<Q, N>
-// impl<Q, N> GraphIterator<Q> for Dfs<Q, N>
-//<Queue = DfsQueue<N, N::Error>>
 impl<N> Iterator for Dfs<N>
 where
     N: Node,
-    // Q: Queue, // <N, N::Error>,
 {
     type Item = Result<N, N::Error>;
 
@@ -140,7 +122,6 @@ where
 pub struct FastDfs<N>
 where
     N: FastNode,
-    // Q: Queue<N, N::Error>,
 {
     queue: DfsQueue<N, N::Error>,
     max_depth: Option<usize>,
@@ -165,15 +146,6 @@ where
         Self { queue, max_depth }
     }
 }
-
-// impl<N> GraphIterator for FastDfs<N>
-// where
-//     N: FastNode,
-// {
-//     fn queue(&self) -> Vec<usize> {
-//         vec![]
-//     }
-// }
 
 impl<N> Iterator for FastDfs<N>
 where
@@ -209,55 +181,55 @@ pub mod par {
     use crate::sync::par::*;
     use crate::sync::*;
 
-    impl<N> HasQueue for Dfs<N>
-    where
-        N: Node,
-    {
-        type Queue = DfsQueue<N, N::Error>;
-        fn queue_mut(&mut self) -> &mut Self::Queue {
-            &mut self.queue
-        }
-        fn queue(&self) -> &Self::Queue {
-            &self.queue
-        }
-    }
+    // impl<N> HasQueue for Dfs<N>
+    // where
+    //     N: Node,
+    // {
+    //     type Queue = DfsQueue<N, N::Error>;
+    //     fn queue_mut(&mut self) -> &mut Self::Queue {
+    //         &mut self.queue
+    //     }
+    //     fn queue(&self) -> &Self::Queue {
+    //         &self.queue
+    //     }
+    // }
 
-    impl<N> GraphIterator<DfsQueue<N, N::Error>> for Dfs<N>
-    where
-        N: Node,
-    {
-        fn from_split(&self, queue: DfsQueue<N, N::Error>) -> Self {
-            Self {
-                queue,
-                max_depth: self.max_depth,
-            }
-        }
-    }
+    // impl<N> GraphIterator<DfsQueue<N, N::Error>> for Dfs<N>
+    // where
+    //     N: Node,
+    // {
+    //     fn from_split(&self, queue: DfsQueue<N, N::Error>) -> Self {
+    //         Self {
+    //             queue,
+    //             max_depth: self.max_depth,
+    //         }
+    //     }
+    // }
 
-    impl<N> HasQueue for FastDfs<N>
-    where
-        N: FastNode,
-    {
-        type Queue = DfsQueue<N, N::Error>;
-        fn queue_mut(&mut self) -> &mut Self::Queue {
-            &mut self.queue
-        }
-        fn queue(&self) -> &Self::Queue {
-            &self.queue
-        }
-    }
+    // impl<N> HasQueue for FastDfs<N>
+    // where
+    //     N: FastNode,
+    // {
+    //     type Queue = DfsQueue<N, N::Error>;
+    //     fn queue_mut(&mut self) -> &mut Self::Queue {
+    //         &mut self.queue
+    //     }
+    //     fn queue(&self) -> &Self::Queue {
+    //         &self.queue
+    //     }
+    // }
 
-    impl<N> GraphIterator<DfsQueue<N, N::Error>> for FastDfs<N>
-    where
-        N: FastNode,
-    {
-        fn from_split(&self, queue: DfsQueue<N, N::Error>) -> Self {
-            Self {
-                queue,
-                max_depth: self.max_depth,
-            }
-        }
-    }
+    // impl<N> GraphIterator<DfsQueue<N, N::Error>> for FastDfs<N>
+    // where
+    //     N: FastNode,
+    // {
+    //     fn from_split(&self, queue: DfsQueue<N, N::Error>) -> Self {
+    //         Self {
+    //             queue,
+    //             max_depth: self.max_depth,
+    //         }
+    //     }
+    // }
 
     //     impl<N> SplittableIterator for super::Dfs<N>
     //     where
@@ -297,31 +269,34 @@ pub mod par {
     //         }
     //     }
 
-    impl<N> rayon::iter::IntoParallelIterator for FastDfs<N>
-    where
-        N: FastNode + Send,
-        N::Error: Send,
-    {
-        type Iter = ParallelSplittableIterator<Self>;
-        type Item = <Self as Iterator>::Item;
+    // impl<N> rayon::iter::IntoParallelIterator for FastDfs<N>
+    // where
+    //     N: FastNode + Send,
+    //     N::Error: Send,
+    // {
+    //     type Iter = ParallelSplittableIterator<Self>;
+    //     type Item = <Self as Iterator>::Item;
 
-        fn into_par_iter(self) -> Self::Iter {
-            ParallelSplittableIterator::new(self)
-        }
-    }
+    //     fn into_par_iter(self) -> Self::Iter {
+    //         ParallelSplittableIterator::new(self)
+    //     }
+    // }
 
-    impl<N> rayon::iter::IntoParallelIterator for Dfs<N>
-    where
-        N: Node + Send,
-        N::Error: Send,
-    {
-        type Iter = ParallelSplittableIterator<Self>;
-        type Item = <Self as Iterator>::Item;
+    // impl<N> rayon::iter::IntoParallelIterator for Dfs<N>
+    // where
+    //     N: Node + Send,
+    //     N::Error: Send,
+    // {
+    //     type Iter = ParallelSplittableIterator<Self>;
+    //     type Item = <Self as Iterator>::Item;
 
-        fn into_par_iter(self) -> Self::Iter {
-            ParallelSplittableIterator::new(self)
-        }
-    }
+    //     fn into_par_iter(self) -> Self::Iter {
+    //         ParallelSplittableIterator::new(self)
+    //     }
+    // }
+
+    parallel_iterator!(Dfs<Node>);
+    parallel_iterator!(FastDfs<FastNode>);
 }
 
 #[cfg(feature = "rayon")]
@@ -335,47 +310,52 @@ mod tests {
     use anyhow::Result;
     use pretty_assertions::assert_eq;
 
-    #[test]
-    fn test_dfs() -> Result<()> {
-        let dfs: Dfs<TestNode> = Dfs::new(0, 3);
-        let expected_depths = [1, 2, 3, 3, 2, 3, 3, 1, 2, 3, 3, 2, 3, 3];
+    macro_rules! test_depths {
+        ($name:ident: $values:expr) => {
+            paste::item! {
+                #[test]
+                fn [< test_ $name _ serial >] () -> Result<()> {
+                    let (iter, expected_depths) = $values;
+                    let output = iter.collect::<Result<Vec<_>, _>>()?;
+                    let depths: Vec<_> = output.into_iter()
+                        .map(|item| item.0).collect();
+                    assert_eq!(depths, expected_depths);
+                    Ok(())
+                }
 
-        let output = dfs.clone().collect::<Result<Vec<_>, _>>()?;
-        println!("dfs output: {:?}", &output);
-        let depths: Vec<_> = output.into_iter().map(|item| item.0).collect();
-        assert_eq!(depths, expected_depths);
+                #[cfg(feature = "rayon")]
+                #[test]
+                fn [< test_ $name _ parallel >] () -> Result<()> {
+                    // use crate::sync::par::IntoParallelIterator;
+                    use rayon::iter::IntoParallelIterator;
+                    use rayon::iter::ParallelIterator;
 
-        #[cfg(feature = "rayon")]
-        {
-            // use crate::sync::par::IntoParallelIterator;
-            use rayon::iter::IntoParallelIterator;
-            use rayon::iter::ParallelIterator;
+                    let (iter, expected_depths) = $values;
+                    let output = iter.into_par_iter()
+                        .collect::<Result<Vec<_>, _>>()?;
+                    let depths: Vec<_> = output.into_iter()
+                        .map(|item| item.0).collect();
+                    assert_eq_vec!(depths, expected_depths);
+                    Ok(())
+                }
 
-            let output = dfs.clone().into_par_iter().collect::<Result<Vec<_>, _>>()?;
-            println!("dfs parallel output: {:?}", &output);
-            let depths: Vec<_> = output.into_iter().map(|item| item.0).collect();
-            assert_eq_vec!(depths, expected_depths);
-        }
-
-        let dfs: FastDfs<TestNode> = FastDfs::new(0, 3);
-        let output = dfs.clone().collect::<Result<Vec<_>, _>>()?;
-        println!("fast dfs output: {:?}", &output);
-        let depths: Vec<_> = output.into_iter().map(|item| item.0).collect();
-        assert_eq!(depths, expected_depths);
-
-        #[cfg(feature = "rayon")]
-        {
-            // use crate::sync::par::IntoParallelIterator;
-            use rayon::iter::IntoParallelIterator;
-            use rayon::iter::ParallelIterator;
-
-            let output = dfs.clone().into_par_iter().collect::<Result<Vec<_>, _>>()?;
-            println!("fast dfs parallel output: {:?}", &output);
-            let mut depths: Vec<_> = output.into_iter().map(|item| item.0).collect();
-            assert_eq_vec!(depths, expected_depths);
-        }
-
-        // assert_eq!(0, 2);
-        Ok(())
+            }
+        };
     }
+
+    test_depths!(
+        dfs:
+        (
+            Dfs::<TestNode>::new(0, 3),
+            [1, 2, 3, 3, 2, 3, 3, 1, 2, 3, 3, 2, 3, 3]
+        )
+    );
+
+    test_depths!(
+        fast_dfs:
+        (
+            FastDfs::<TestNode>::new(0, 3),
+            [1, 2, 3, 3, 2, 3, 3, 1, 2, 3, 3, 2, 3, 3]
+        )
+    );
 }

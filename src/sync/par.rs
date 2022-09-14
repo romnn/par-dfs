@@ -9,30 +9,6 @@ pub trait SplittableIterator: Iterator + Sized {
     fn split(&mut self) -> Option<Self>;
 }
 
-// // impl<N> SplittableIterator for super::GraphIterator<N>
-// impl<T, Q, I, E> SplittableIterator for T
-// // super::GraphIterator
-// where
-//     // Q: super::Queue<I, E>,
-//     T: super::GraphIterator<Q, I, E>,
-// {
-//     #[inline(always)]
-//     fn split(&mut self) -> Option<Self> {
-//         self.split()
-//         // let len = self.queue().len();
-//         // // let len = self.queue.len();
-//         // if len >= 2 {
-//         //     let split = self.queue.split_off(len / 2);
-//         //     Some(Self {
-//         //         queue: split,
-//         //         max_depth: self.max_depth,
-//         //     })
-//         // } else {
-//         //     None
-//         // }
-//     }
-// }
-
 /// Converts a SplittableIterator into a ParallelIterator.
 pub trait IntoParallelIterator: Sized {
     /// Parallelize this.
@@ -141,22 +117,38 @@ where
     }
 }
 
-// impl<T> IntoParallelIterator for T
-// // dyn SplittableIterator<Item = T>
-// // impl<SI> IntoParallelIterator for NodeIterator
-// // SplittableIterator<Item = T>
-// where
-//     // T: Sized,
-//     T: SplittableIterator + Send,
-//     //     SI::Item: Send,
-// {
-//     // type Iter = ParallelSplittableIteratorWrapper<SI>;
-//     type Iter = ParallelSplittableIterator<T>;
-//     // type Item = Iter::Item;
-//     // type Item = Self::Iter::Item;
-//     type Item = T::Item;
+macro_rules! parallel_iterator {
+    ($iter:ident<$node:ident>) => {
+        impl<N> $crate::sync::par::SplittableIterator for $iter<N>
+        where
+            N: $node,
+        {
+            fn split(&mut self) -> Option<Self> {
+                let len = self.queue.len();
+                if len >= 2 {
+                    let split = self.queue.split_off(len / 2);
+                    Some(Self {
+                        queue: split,
+                        max_depth: self.max_depth,
+                    })
+                } else {
+                    None
+                }
+            }
+        }
 
-//     fn into_par_iter(self) -> Self::Iter {
-//         ParallelSplittableIterator::new(self)
-//     }
-// }
+        impl<N> rayon::iter::IntoParallelIterator for $iter<N>
+        where
+            N: $node + Send,
+            N::Error: Send,
+        {
+            type Iter = $crate::sync::par::ParallelSplittableIterator<Self>;
+            type Item = <Self as Iterator>::Item;
+
+            fn into_par_iter(self) -> Self::Iter {
+                $crate::sync::par::ParallelSplittableIterator::new(self)
+            }
+        }
+    };
+}
+pub(crate) use parallel_iterator;

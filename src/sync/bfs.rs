@@ -4,21 +4,17 @@ use std::iter::Iterator;
 
 #[derive(Clone)]
 pub struct BfsQueue<I, E> {
-    current: VecDeque<(usize, Result<I, E>)>,
-    next: VecDeque<(usize, Result<I, E>)>,
+    inner: VecDeque<(usize, Result<I, E>)>,
 }
 
 impl<I, E> Queue for BfsQueue<I, E> {
     fn len(&self) -> usize {
-        self.current.len()
+        self.inner.len()
     }
 
     fn split_off(&mut self, at: usize) -> Self {
-        let split = self.current.split_off(at);
-        Self {
-            current: split,
-            next: VecDeque::new(),
-        }
+        let split = self.inner.split_off(at);
+        Self { inner: split }
     }
 }
 
@@ -26,72 +22,36 @@ impl<I, E> std::ops::Deref for BfsQueue<I, E> {
     type Target = VecDeque<(usize, Result<I, E>)>;
 
     fn deref(&self) -> &Self::Target {
-        &self.current
+        &self.inner
     }
 }
 
 impl<I, E> std::ops::DerefMut for BfsQueue<I, E> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.current
+        &mut self.inner
     }
 }
 
 impl<I, E> BfsQueue<I, E> {
     pub fn new() -> Self {
         Self {
-            current: VecDeque::new(),
-            next: VecDeque::new(),
+            inner: VecDeque::new(),
         }
-    }
-}
-
-impl<I, E> BfsQueue<I, E>
-where
-    I: std::fmt::Debug,
-    E: std::fmt::Debug,
-{
-    pub fn inspect(&self) {
-        println!("current = {:?}", self.current);
-        println!("next = {:?}", self.next);
     }
 }
 
 impl<I, E> ExtendQueue<I, E> for BfsQueue<I, E> {
     fn add(&mut self, depth: usize, item: Result<I, E>) {
-        self.current.push_back((depth, item));
-        // self.next.push_back((depth, item));
+        self.inner.push_back((depth, item));
     }
 
     fn add_all<Iter>(&mut self, depth: usize, iter: Iter)
     where
         Iter: IntoIterator<Item = Result<I, E>>,
     {
-        self.current.extend(iter.into_iter().map(|i| (depth, i)));
-        // self.next.extend(iter.into_iter().map(|i| (depth, i)));
-    }
-
-    fn next_nodes(&mut self) {
-        // println!("next nodes");
-        // std::mem::swap(&mut self.current, &mut self.next);
-        // while let Some(next) = self.next.pop_front() {
-        //     self.current.push_back(next);
-        // }
+        self.inner.extend(iter.into_iter().map(|i| (depth, i)));
     }
 }
-
-// impl<I, E> BfsQueue<I, E> {
-//     pub fn split_off(&mut self, at: usize) -> Self {
-//         Self {
-//             inner: self.inner.split_off(at),
-//         }
-//     }
-// }
-
-// impl<I, E> Queue<I, E> for BfsQueue<I, E> {
-//     fn next(&mut self) -> Option<(usize, Result<I, E>)> {
-//         self.inner.pop_front()
-//     }
-// }
 
 #[allow(missing_debug_implementations)]
 #[derive(Clone)]
@@ -130,17 +90,11 @@ where
 impl<N, E> Iterator for Bfs<N>
 where
     N: Node<Error = E>,
-    E: std::fmt::Debug,
 {
     type Item = Result<N, N::Error>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        // self.queue.inspect();
-        if self.queue.is_empty() {
-            self.queue.next_nodes();
-        }
-        // self.queue.inspect();
         match self.queue.pop_front() {
             // next node failed
             Some((depth, Err(err))) => Some(Err(err)),
@@ -170,7 +124,6 @@ where
 pub struct FastBfs<N>
 where
     N: FastNode,
-    // Q: Queue<N, N::Error>,
 {
     queue: BfsQueue<N, N::Error>,
     max_depth: Option<usize>,
@@ -230,85 +183,88 @@ pub mod par {
     use crate::sync::par::*;
     use crate::sync::*;
 
-    impl<N> HasQueue for Bfs<N>
-    where
-        N: Node,
-    {
-        type Queue = BfsQueue<N, N::Error>;
-        fn queue_mut(&mut self) -> &mut Self::Queue {
-            &mut self.queue
-        }
-        fn queue(&self) -> &Self::Queue {
-            &self.queue
-        }
-    }
-
-    impl<N> GraphIterator<BfsQueue<N, N::Error>> for Bfs<N>
-    where
-        N: Node,
-    {
-        fn from_split(&self, queue: BfsQueue<N, N::Error>) -> Self {
-            Self {
-                queue,
-                max_depth: self.max_depth,
-            }
-        }
-    }
-
-    impl<N> rayon::iter::IntoParallelIterator for Bfs<N>
-    where
-        N: Node + Send,
-        N::Error: Send,
-    {
-        type Iter = ParallelSplittableIterator<Self>;
-        type Item = <Self as Iterator>::Item;
-
-        fn into_par_iter(self) -> Self::Iter {
-            ParallelSplittableIterator::new(self)
-        }
-    }
-
-    impl<N> HasQueue for FastBfs<N>
-    where
-        N: FastNode,
-    {
-        type Queue = BfsQueue<N, N::Error>;
-        fn queue_mut(&mut self) -> &mut Self::Queue {
-            &mut self.queue
-        }
-        fn queue(&self) -> &Self::Queue {
-            &self.queue
-        }
-    }
-
-    impl<N> GraphIterator<BfsQueue<N, N::Error>> for FastBfs<N>
-    where
-        N: FastNode,
-    {
-        fn from_split(&self, queue: BfsQueue<N, N::Error>) -> Self {
-            Self {
-                queue,
-                max_depth: self.max_depth,
-            }
-        }
-    }
-
-    impl<N> rayon::iter::IntoParallelIterator for FastBfs<N>
-    where
-        N: FastNode + Send,
-        N::Error: Send,
-    {
-        type Iter = ParallelSplittableIterator<Self>;
-        type Item = <Self as Iterator>::Item;
-
-        fn into_par_iter(self) -> Self::Iter {
-            ParallelSplittableIterator::new(self)
-        }
-    }
-
-    // impl<N, E> SplittableIterator for Bfs<N>
+    // impl<N> HasQueue for Bfs<N>
     // where
-    //     N: Node<Error = E>,
+    //     N: Node,
+    // {
+    //     type Queue = BfsQueue<N, N::Error>;
+    //     fn queue_mut(&mut self) -> &mut Self::Queue {
+    //         &mut self.queue
+    //     }
+    //     fn queue(&self) -> &Self::Queue {
+    //         &self.queue
+    //     }
+    // }
+
+    // impl<N> GraphIterator<BfsQueue<N, N::Error>> for Bfs<N>
+    // where
+    //     N: Node,
+    // {
+    //     fn from_split(&self, queue: BfsQueue<N, N::Error>) -> Self {
+    //         Self {
+    //             queue,
+    //             max_depth: self.max_depth,
+    //         }
+    //     }
+    // }
+
+    // impl<N> rayon::iter::IntoParallelIterator for Bfs<N>
+    // where
+    //     N: Node + Send,
+    //     N::Error: Send,
+    // {
+    //     type Iter = ParallelSplittableIterator<Self>;
+    //     type Item = <Self as Iterator>::Item;
+
+    //     fn into_par_iter(self) -> Self::Iter {
+    //         ParallelSplittableIterator::new(self)
+    //     }
+    // }
+
+    // impl<N> HasQueue for FastBfs<N>
+    // where
+    //     N: FastNode,
+    // {
+    //     type Queue = BfsQueue<N, N::Error>;
+    //     fn queue_mut(&mut self) -> &mut Self::Queue {
+    //         &mut self.queue
+    //     }
+    //     fn queue(&self) -> &Self::Queue {
+    //         &self.queue
+    //     }
+    // }
+
+    // impl<N> GraphIterator<BfsQueue<N, N::Error>> for FastBfs<N>
+    // where
+    //     N: FastNode,
+    // {
+    //     fn from_split(&self, queue: BfsQueue<N, N::Error>) -> Self {
+    //         Self {
+    //             queue,
+    //             max_depth: self.max_depth,
+    //         }
+    //     }
+    // }
+
+    // impl<N> rayon::iter::IntoParallelIterator for FastBfs<N>
+    // where
+    //     N: FastNode + Send,
+    //     N::Error: Send,
+    // {
+    //     type Iter = ParallelSplittableIterator<Self>;
+    //     type Item = <Self as Iterator>::Item;
+
+    //     fn into_par_iter(self) -> Self::Iter {
+    //         ParallelSplittableIterator::new(self)
+    //     }
+    // }
+
+    parallel_iterator!(Bfs<Node>);
+    parallel_iterator!(FastBfs<FastNode>);
+
+    // impl<N> SplittableIterator for Bfs<N>
+    // where
+    //     N: Node,
     // {
     //     fn split(&mut self) -> Option<Self> {
     //         let len = self.queue.len();
@@ -321,6 +277,19 @@ pub mod par {
     //         } else {
     //             None
     //         }
+    //     }
+    // }
+
+    // impl<N> rayon::iter::IntoParallelIterator for Bfs<N>
+    // where
+    //     N: Node + Send,
+    //     N::Error: Send,
+    // {
+    //     type Iter = ParallelSplittableIterator<Self>;
+    //     type Item = <Self as Iterator>::Item;
+
+    //     fn into_par_iter(self) -> Self::Iter {
+    //         ParallelSplittableIterator::new(self)
     //     }
     // }
 }
@@ -338,61 +307,53 @@ mod tests {
     use pretty_assertions::assert_eq;
     use std::cmp::Ordering;
 
-    #[test]
-    fn test_bfs() -> Result<()> {
-        let bfs: Bfs<TestNode> = Bfs::new(0, 3);
-        let expected_depths = [1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3];
+    macro_rules! test_depths {
+        ($name:ident: $values:expr) => {
+            paste::item! {
+                #[test]
+                fn [< test_ $name _ serial >] () -> Result<()> {
+                    let (iter, expected_depths) = $values;
+                    let output = iter.collect::<Result<Vec<_>, _>>()?;
+                    let depths: Vec<_> = output.into_iter()
+                        .map(|item| item.0).collect();
+                    assert!(is_monotonic(&depths, Ordering::Greater));
+                    assert_eq!(depths, expected_depths);
+                    Ok(())
+                }
 
-        let output = bfs.clone().collect::<Result<Vec<_>, _>>()?;
-        println!("bfs output: {:?}", &output);
-        let depths: Vec<_> = output.into_iter().map(|item| item.0).collect();
-        assert!(is_monotonic(&depths, Ordering::Greater));
-        assert_eq!(depths, expected_depths);
+                #[cfg(feature = "rayon")]
+                #[test]
+                fn [< test_ $name _ parallel >] () -> Result<()> {
+                    // use crate::sync::par::IntoParallelIterator;
+                    use rayon::iter::IntoParallelIterator;
+                    use rayon::iter::ParallelIterator;
 
-        #[cfg(feature = "rayon")]
-        {
-            // use crate::sync::par::IntoParallelIterator;
-            use rayon::iter::IntoParallelIterator;
-            use rayon::iter::ParallelIterator;
+                    let (iter, expected_depths) = $values;
+                    let output = iter.into_par_iter()
+                        .collect::<Result<Vec<_>, _>>()?;
+                    let depths: Vec<_> = output.into_iter()
+                        .map(|item| item.0).collect();
+                    assert_eq_vec!(depths, expected_depths);
+                    Ok(())
+                }
 
-            let output = bfs.clone().into_par_iter().collect::<Result<Vec<_>, _>>()?;
-            println!("bfs parallel output: {:?}", &output);
-            let mut depths: Vec<_> = output.into_iter().map(|item| item.0).collect();
-            assert_eq_vec!(depths, expected_depths);
-        }
-
-        let bfs: FastBfs<TestNode> = FastBfs::new(0, 3);
-        let expected_depths = [1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3];
-
-        let output = bfs.clone().collect::<Result<Vec<_>, _>>()?;
-        println!("fast bfs output: {:?}", &output);
-        let depths: Vec<_> = output.into_iter().map(|item| item.0).collect();
-        assert!(is_monotonic(&depths, Ordering::Greater));
-        assert_eq!(depths, expected_depths);
-
-        #[cfg(feature = "rayon")]
-        {
-            // use crate::sync::par::IntoParallelIterator;
-            use rayon::iter::IntoParallelIterator;
-            use rayon::iter::ParallelIterator;
-
-            let output = bfs.clone().into_par_iter().collect::<Result<Vec<_>, _>>()?;
-            println!("fast bfs parallel output: {:?}", &output);
-            let mut depths: Vec<_> = output.into_iter().map(|item| item.0).collect();
-            assert_eq_vec!(depths, expected_depths);
-        }
-
-        // use rayon::iter::IntoParallelIterator;
-        // use rayon::iter::ParallelIterator;
-        // // use rayon::iter::ParallelBridge;
-        // // into_par_iter()
-        // // let output = dfs.clone().par_bridge().collect::<Result<Vec<_>, _>>()?;
-        // let output = dfs.clone().into_par_iter().collect::<Result<Vec<_>, _>>()?;
-        // println!("rayon output: {:?}", &output);
-        // let depths: Vec<_> = output.into_iter().map(|item| item.0).collect();
-        // assert_eq!(depths, expected_depths);
-
-        // assert_eq!(0, 2);
-        Ok(())
+            }
+        };
     }
+
+    test_depths!(
+        bfs:
+        (
+            Bfs::<TestNode>::new(0, 3),
+            [1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3]
+        )
+    );
+
+    test_depths!(
+        fast_bfs:
+        (
+            FastBfs::<TestNode>::new(0, 3),
+            [1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3]
+        )
+    );
 }

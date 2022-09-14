@@ -4,6 +4,7 @@ use criterion::{
 use std::convert::Infallible;
 use std::iter::Iterator;
 use std::time::Duration;
+use par_dfs::sync::*;
 
 /// Enumerates the numbers that reach the given starting point when iterating
 /// the [Collatz] map, by depth-first search over the [graph] of their orbits.
@@ -181,116 +182,178 @@ where
     group.sampling_mode(SamplingMode::Flat);
 }
 
-fn collatz_params() -> (u32, Option<usize>) {
-    // let limit = 1_00;
-    // let start = black_box(1);
-    (black_box(1), Some(1_00))
-}
+const START: u32 = 1;
+const LIMIT: Option<usize> = Some(1_00);
 
-/// Benchmarks for [Collatz] bfs.
-fn bench_collatz_dfs(c: &mut Criterion) {
-    use par_dfs::sync::Dfs;
-    use par_dfs::sync::FastDfs;
 
-    let mut group = c.benchmark_group("collatz/dfs");
-    configure_group(&mut group);
-    // group.sample_size(10);
-    // group.sampling_mode(SamplingMode::Flat);
-    let (start, limit) = collatz_params();
+macro_rules! bench_collatz_sync {
+    ($name:ident: $group:literal, $iter:expr) => {
+        /// Benchmarks for [Collatz] $name.
+        fn $name(c: &mut Criterion) {
+            let mut group = c.benchmark_group($group);
+            configure_group(&mut group);
+            let iter = $iter;
 
-    // let limit = 1_00;
-    // let start = black_box(1);
-
-    let fastdfs: FastDfs<CollatzNode> = FastDfs::new(start, limit);
-    let dfs: Dfs<CollatzNode> = Dfs::new(start, limit);
-    let customdfs = CollatzIter::new(start, limit);
-}
-
-/// Benchmarks for [Collatz] bfs.
-fn bench_collatz_bfs(c: &mut Criterion) {
-    use par_dfs::sync::Bfs;
-    use par_dfs::sync::FastBfs;
-    let (start, limit) = collatz_params();
-
-    {
-        let mut bfs_group = c.benchmark_group("collatz/bfs");
-        configure_group(&mut bfs_group);
-        let bfs: Bfs<CollatzNode> = Bfs::new(start, limit);
-
-        bfs_group.bench_function("sequential", |b| {
-            b.iter(|| {
-                bfs.clone().count();
-            })
-        });
-
-        #[cfg(feature = "rayon")]
-        bfs_group.bench_function(
-            format!("parallel bridge ({} threads)", rayon::current_num_threads()),
-            |b| {
+            group.bench_function("sequential", |b| {
                 b.iter(|| {
-                    use rayon::iter::{ParallelBridge, ParallelIterator};
-                    bfs.clone().par_bridge().count()
+                    iter.clone().count();
                 })
-            },
-        );
+            });
 
-        #[cfg(feature = "rayon")]
-        bfs_group.bench_function(
-            format!("parallel ({} threads)", rayon::current_num_threads()),
-            |b| {
-                b.iter(|| {
-                    use rayon::iter::{IntoParallelIterator, ParallelIterator};
-                    bfs.clone().into_par_iter().count()
-                })
-            },
-        );
-    }
+            #[cfg(feature = "rayon")]
+            group.bench_function(
+                format!("parallel bridge ({} threads)", rayon::current_num_threads()),
+                |b| {
+                    b.iter(|| {
+                        use rayon::iter::{ParallelBridge, ParallelIterator};
+                        iter.clone().par_bridge().count()
+                    })
+                },
+            );
 
-    let mut fastbfs_group = c.benchmark_group("collatz/fastbfs");
-    configure_group(&mut fastbfs_group);
-    let fastbfs: FastBfs<CollatzNode> = FastBfs::new(start, limit);
-
-    fastbfs_group.bench_function("sequential", |b| {
-        b.iter(|| {
-            fastbfs.clone().count();
-        })
-    });
-
-    #[cfg(feature = "rayon")]
-    fastbfs_group.bench_function(
-        format!("parallel bridge ({} threads)", rayon::current_num_threads()),
-        |b| {
-            b.iter(|| {
-                use rayon::iter::{ParallelBridge, ParallelIterator};
-                fastbfs.clone().par_bridge().count()
-            })
-        },
-    );
-
-    #[cfg(feature = "rayon")]
-    fastbfs_group.bench_function(
-        format!("parallel ({} threads)", rayon::current_num_threads()),
-        |b| {
-            b.iter(|| {
-                use rayon::iter::{IntoParallelIterator, ParallelIterator};
-                fastbfs.clone().into_par_iter().count()
-            })
-        },
-    );
-
-    // #[cfg(feature = "rayon")]
-    // bfs_group.bench_function(
-    //     format!("custom ({} threads)", rayon::current_num_threads()),
-    //     |b| {
-    //         b.iter(|| {
-    //             use par_dfs::sync::par::IntoParallelIterator;
-    //             use rayon::iter::ParallelIterator;
-    //             // use rayon::iter::{IntoParallelIterator, ParallelIterator};
-    //             custom.clone().into_par_iter().count()
-    //         })
-    //     },
-    // );
+            #[cfg(feature = "rayon")]
+            group.bench_function(
+                format!("parallel ({} threads)", rayon::current_num_threads()),
+                |b| {
+                    b.iter(|| {
+                        use rayon::iter::{IntoParallelIterator, ParallelIterator};
+                        iter.clone().into_par_iter().count()
+                    })
+                },
+            );
+        }
+    };
 }
 
-criterion_group!(collatz, bench_collatz_bfs, bench_collatz_dfs);
+bench_collatz_sync!(
+    bench_collatz_sync_fast_bfs:
+    "collatz/sync/fastbfs", FastBfs::<CollatzNode>::new(black_box(START), LIMIT)
+);
+
+bench_collatz_sync!(
+    bench_collatz_sync_bfs:
+    "collatz/sync/bfs", Bfs::<CollatzNode>::new(black_box(START), LIMIT)
+);
+
+bench_collatz_sync!(
+    bench_collatz_sync_fast_dfs:
+    "collatz/sync/fastdfs", FastDfs::<CollatzNode>::new(black_box(START), LIMIT)
+);
+
+bench_collatz_sync!(
+    bench_collatz_sync_dfs:
+    "collatz/sync/dfs", Dfs::<CollatzNode>::new(black_box(START), LIMIT)
+);
+
+// fn bench_collatz_dfs(c: &mut Criterion) {
+//     use par_dfs::sync::Dfs;
+//     use par_dfs::sync::FastDfs;
+
+//     let mut group = c.benchmark_group("collatz/dfs");
+//     configure_group(&mut group);
+//     // group.sample_size(10);
+//     // group.sampling_mode(SamplingMode::Flat);
+//     let (start, limit) = collatz_params();
+
+//     // let limit = 1_00;
+//     // let start = black_box(1);
+
+//     let fastdfs: FastDfs<CollatzNode> = FastDfs::new(start, limit);
+//     let dfs: Dfs<CollatzNode> = Dfs::new(start, limit);
+//     let customdfs = CollatzIter::new(start, limit);
+// }
+
+// /// Benchmarks for [Collatz] bfs.
+// fn bench_collatz_bfs(c: &mut Criterion) {
+//     use par_dfs::sync::Bfs;
+//     use par_dfs::sync::FastBfs;
+//     // let (start, limit) = collatz_params();
+
+//     {
+//         let mut bfs_group = c.benchmark_group("collatz/bfs");
+//         configure_group(&mut bfs_group);
+//         let bfs: Bfs<CollatzNode> = Bfs::new(START, LIMIT);
+
+//         bfs_group.bench_function("sequential", |b| {
+//             b.iter(|| {
+//                 bfs.clone().count();
+//             })
+//         });
+
+//         #[cfg(feature = "rayon")]
+//         bfs_group.bench_function(
+//             format!("parallel bridge ({} threads)", rayon::current_num_threads()),
+//             |b| {
+//                 b.iter(|| {
+//                     use rayon::iter::{ParallelBridge, ParallelIterator};
+//                     bfs.clone().par_bridge().count()
+//                 })
+//             },
+//         );
+
+//         #[cfg(feature = "rayon")]
+//         bfs_group.bench_function(
+//             format!("parallel ({} threads)", rayon::current_num_threads()),
+//             |b| {
+//                 b.iter(|| {
+//                     use rayon::iter::{IntoParallelIterator, ParallelIterator};
+//                     bfs.clone().into_par_iter().count()
+//                 })
+//             },
+//         );
+//     }
+
+//     let mut fastbfs_group = c.benchmark_group("collatz/fastbfs");
+//     configure_group(&mut fastbfs_group);
+//     let fastbfs: FastBfs<CollatzNode> = FastBfs::new(START, LIMIT);
+
+//     fastbfs_group.bench_function("sequential", |b| {
+//         b.iter(|| {
+//             fastbfs.clone().count();
+//         })
+//     });
+
+//     #[cfg(feature = "rayon")]
+//     fastbfs_group.bench_function(
+//         format!("parallel bridge ({} threads)", rayon::current_num_threads()),
+//         |b| {
+//             b.iter(|| {
+//                 use rayon::iter::{ParallelBridge, ParallelIterator};
+//                 fastbfs.clone().par_bridge().count()
+//             })
+//         },
+//     );
+
+//     #[cfg(feature = "rayon")]
+//     fastbfs_group.bench_function(
+//         format!("parallel ({} threads)", rayon::current_num_threads()),
+//         |b| {
+//             b.iter(|| {
+//                 use rayon::iter::{IntoParallelIterator, ParallelIterator};
+//                 fastbfs.clone().into_par_iter().count()
+//             })
+//         },
+//     );
+
+//     // #[cfg(feature = "rayon")]
+//     // bfs_group.bench_function(
+//     //     format!("custom ({} threads)", rayon::current_num_threads()),
+//     //     |b| {
+//     //         b.iter(|| {
+//     //             use par_dfs::sync::par::IntoParallelIterator;
+//     //             use rayon::iter::ParallelIterator;
+//     //             // use rayon::iter::{IntoParallelIterator, ParallelIterator};
+//     //             custom.clone().into_par_iter().count()
+//     //         })
+//     //     },
+//     // );
+// }
+
+criterion_group!(
+    collatz,
+    bench_collatz_sync_bfs,
+    bench_collatz_sync_fast_bfs,
+    bench_collatz_sync_dfs,
+    bench_collatz_sync_fast_dfs
+);
 criterion_main!(collatz);
