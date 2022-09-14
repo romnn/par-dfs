@@ -1,0 +1,48 @@
+[package]
+name = "par-dfs"
+version = "0.1.0"
+edition = "2021"
+authors = ["romnn <contact@romnn.com>"]
+description = "bump semver git version"
+license-file = "LICENSE"
+readme = "README.md"
+homepage = "https://github.com/romnn/bumpversion"
+repository = "https://github.com/romnn/bumpversion"
+categories = [
+  "multimedia::images",
+  "command-line-utilities",
+  "wasm",
+  "web-programming"
+]
+keywords = [
+  "image",
+  "35mm",
+  "film",
+  "photography",
+  "borders"
+]
+exclude = []
+
+[[bench]]
+name = "benches"
+harness = false
+
+[features]
+default = ["sync"]
+full = ["sync", "async", "rayon"]
+rayon = ["dep:rayon"]
+sync = []
+async = []
+# async = ["dep:git-repository"]
+
+[dependencies]
+# anyhow = "1"
+thiserror = "1"
+rayon = { version = "1", optional = true }
+
+[dev-dependencies]
+num-traits = "0.2"
+criterion = "0.4"
+anyhow = "1"
+# rand = "0.8"
+pretty_assertions = "1.3"

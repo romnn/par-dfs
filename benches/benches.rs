@@ -1,0 +1,296 @@
+use criterion::{
+    black_box, criterion_group, criterion_main, BenchmarkGroup, Criterion, SamplingMode,
+};
+use std::convert::Infallible;
+use std::iter::Iterator;
+use std::time::Duration;
+
+/// Enumerates the numbers that reach the given starting point when iterating
+/// the [Collatz] map, by depth-first search over the [graph] of their orbits.
+///
+/// [Collatz]: https://en.wikipedia.org/wiki/Collatz_conjecture
+/// [graph]: https://en.wikipedia.org/wiki/File:Collatz_orbits_of_the_all_integers_up_to_1000.svg
+
+#[cfg(feature = "rayon")]
+pub mod custom {
+    use par_dfs::sync::*;
+    use std::convert::Infallible;
+
+    type StackType = Vec<(usize, Result<u32, Infallible>)>;
+
+    #[derive(Clone, Debug)]
+    pub struct Stack {
+        inner: StackType,
+    }
+
+    impl Queue for Stack {
+        fn len(&self) -> usize {
+            self.inner.len()
+        }
+
+        fn split_off(&mut self, at: usize) -> Self {
+            let split = self.inner.split_off(at);
+            Self { inner: split }
+        }
+    }
+
+    #[derive(Clone, Debug)]
+    pub struct CollatzIter {
+        max_depth: Option<usize>,
+        stack: Stack,
+    }
+
+    impl CollatzIter {
+        pub fn new<D: Into<Option<usize>>>(start: u32, max_depth: D) -> Self {
+            Self {
+                max_depth: max_depth.into(),
+                stack: Stack {
+                    inner: vec![(0, Ok(start))],
+                },
+            }
+        }
+    }
+
+    impl Iterator for CollatzIter {
+        type Item = Result<u32, Infallible>;
+
+        #[inline(always)]
+        fn next(&mut self) -> Option<Self::Item> {
+            match self.stack.inner.pop() {
+                Some((depth, Ok(n))) => {
+                    if let Some(max_depth) = self.max_depth {
+                        if max_depth >= depth {
+                            return Some(Ok(n));
+                        }
+                    }
+                    // n can be reached by dividing by two
+                    // as long as it doesn't overflow
+                    if let Some(even) = n.checked_mul(2) {
+                        self.stack.inner.push((depth, Ok(even)));
+                    }
+
+                    // n can be reached by 3x + 1 iff (n - 1) / 3 is an odd integer
+                    if n > 4 && n % 6 == 4 {
+                        self.stack.inner.push((depth, Ok((n - 1) / 3)));
+                    }
+                    Some(Ok(n))
+                }
+                Some((depth, n)) => Some(n),
+                None => None,
+            }
+        }
+    }
+
+    impl HasQueue for CollatzIter {
+        type Queue = Stack;
+        fn queue_mut(&mut self) -> &mut Self::Queue {
+            &mut self.stack
+        }
+        fn queue(&self) -> &Self::Queue {
+            &self.stack
+        }
+    }
+
+    impl GraphIterator<Stack> for CollatzIter {
+        fn from_split(&self, stack: Stack) -> Self {
+            Self {
+                stack,
+                max_depth: self.max_depth,
+            }
+        }
+    }
+}
+
+#[cfg(feature = "rayon")]
+pub use custom::*;
+
+#[derive(Clone, Debug)]
+pub struct CollatzNode(pub u32);
+
+impl From<u32> for CollatzNode {
+    #[inline]
+    fn from(n: u32) -> Self {
+        Self(n)
+    }
+}
+
+impl CollatzNode {
+    #[inline]
+    pub fn collatz_children(&self) -> impl Iterator<Item = Result<CollatzNode, Infallible>> {
+        let n = self.0;
+        let mut children = vec![];
+
+        // n can be reached by dividing by two
+        // as long as it doesn't overflow
+        if let Some(even) = n.checked_mul(2) {
+            children.push(even);
+        }
+
+        // n can be reached by 3x + 1 iff (n - 1) / 3 is an odd integer
+        if n > 4 && n % 6 == 4 {
+            children.push((n - 1) / 3);
+        }
+        children.into_iter().map(|d| Self(d)).map(Result::Ok)
+    }
+}
+
+pub mod sync {
+    use super::*;
+    use par_dfs::sync::*;
+    use std::convert::Infallible;
+
+    impl FastNode for super::CollatzNode {
+        type Error = Infallible;
+
+        #[inline(always)]
+        fn add_children<E>(&self, depth: usize, queue: &mut E) -> Result<(), Self::Error>
+        where
+            E: ExtendQueue<Self, Self::Error>,
+        {
+            let n = self.0;
+
+            // n can be reached by dividing by two
+            // as long as it doesn't overflow
+            if let Some(even) = n.checked_mul(2) {
+                queue.add(depth, Ok(Self(even)));
+            }
+
+            // n can be reached by 3x + 1 iff (n - 1) / 3 is an odd integer
+            if n > 4 && n % 6 == 4 {
+                queue.add(depth, Ok(Self((n - 1) / 3)));
+            }
+            Ok(())
+        }
+    }
+
+    impl Node for super::CollatzNode {
+        type Error = Infallible;
+
+        #[inline(always)]
+        fn children(&self, depth: usize) -> NodeIter<Self, Self::Error> {
+            Ok(Box::new(self.collatz_children()))
+        }
+    }
+}
+
+fn configure_group<M>(group: &mut BenchmarkGroup<M>)
+where
+    M: criterion::measurement::Measurement,
+{
+    group.sample_size(10);
+    group.sampling_mode(SamplingMode::Flat);
+}
+
+fn collatz_params() -> (u32, Option<usize>) {
+    // let limit = 1_00;
+    // let start = black_box(1);
+    (black_box(1), Some(1_00))
+}
+
+/// Benchmarks for [Collatz] bfs.
+fn bench_collatz_dfs(c: &mut Criterion) {
+    use par_dfs::sync::Dfs;
+    use par_dfs::sync::FastDfs;
+
+    let mut group = c.benchmark_group("collatz/dfs");
+    configure_group(&mut group);
+    // group.sample_size(10);
+    // group.sampling_mode(SamplingMode::Flat);
+    let (start, limit) = collatz_params();
+
+    // let limit = 1_00;
+    // let start = black_box(1);
+
+    let fastdfs: FastDfs<CollatzNode> = FastDfs::new(start, limit);
+    let dfs: Dfs<CollatzNode> = Dfs::new(start, limit);
+    let customdfs = CollatzIter::new(start, limit);
+}
+
+/// Benchmarks for [Collatz] bfs.
+fn bench_collatz_bfs(c: &mut Criterion) {
+    use par_dfs::sync::Bfs;
+    use par_dfs::sync::FastBfs;
+    let (start, limit) = collatz_params();
+
+    {
+        let mut bfs_group = c.benchmark_group("collatz/bfs");
+        configure_group(&mut bfs_group);
+        let bfs: Bfs<CollatzNode> = Bfs::new(start, limit);
+
+        bfs_group.bench_function("sequential", |b| {
+            b.iter(|| {
+                bfs.clone().count();
+            })
+        });
+
+        #[cfg(feature = "rayon")]
+        bfs_group.bench_function(
+            format!("parallel bridge ({} threads)", rayon::current_num_threads()),
+            |b| {
+                b.iter(|| {
+                    use rayon::iter::{ParallelBridge, ParallelIterator};
+                    bfs.clone().par_bridge().count()
+                })
+            },
+        );
+
+        #[cfg(feature = "rayon")]
+        bfs_group.bench_function(
+            format!("parallel ({} threads)", rayon::current_num_threads()),
+            |b| {
+                b.iter(|| {
+                    use rayon::iter::{IntoParallelIterator, ParallelIterator};
+                    bfs.clone().into_par_iter().count()
+                })
+            },
+        );
+    }
+
+    let mut fastbfs_group = c.benchmark_group("collatz/fastbfs");
+    configure_group(&mut fastbfs_group);
+    let fastbfs: FastBfs<CollatzNode> = FastBfs::new(start, limit);
+
+    fastbfs_group.bench_function("sequential", |b| {
+        b.iter(|| {
+            fastbfs.clone().count();
+        })
+    });
+
+    #[cfg(feature = "rayon")]
+    fastbfs_group.bench_function(
+        format!("parallel bridge ({} threads)", rayon::current_num_threads()),
+        |b| {
+            b.iter(|| {
+                use rayon::iter::{ParallelBridge, ParallelIterator};
+                fastbfs.clone().par_bridge().count()
+            })
+        },
+    );
+
+    #[cfg(feature = "rayon")]
+    fastbfs_group.bench_function(
+        format!("parallel ({} threads)", rayon::current_num_threads()),
+        |b| {
+            b.iter(|| {
+                use rayon::iter::{IntoParallelIterator, ParallelIterator};
+                fastbfs.clone().into_par_iter().count()
+            })
+        },
+    );
+
+    // #[cfg(feature = "rayon")]
+    // bfs_group.bench_function(
+    //     format!("custom ({} threads)", rayon::current_num_threads()),
+    //     |b| {
+    //         b.iter(|| {
+    //             use par_dfs::sync::par::IntoParallelIterator;
+    //             use rayon::iter::ParallelIterator;
+    //             // use rayon::iter::{IntoParallelIterator, ParallelIterator};
+    //             custom.clone().into_par_iter().count()
+    //         })
+    //     },
+    // );
+}
+
+criterion_group!(collatz, bench_collatz_bfs, bench_collatz_dfs);
+criterion_main!(collatz);
