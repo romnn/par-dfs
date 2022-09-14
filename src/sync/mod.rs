@@ -17,48 +17,8 @@ pub trait ExtendQueue<I, E> {
 }
 
 pub trait Queue {
-    // fn len(&self) -> usize;
     fn split_off(&mut self, at: usize) -> Self;
 }
-
-// #[cfg(feature = "rayon")]
-// mod par_iter {
-//     use crate::sync::par::*;
-//     use crate::sync::*;
-
-//     pub trait HasQueue {
-//         type Queue: Queue;
-
-//         fn queue_mut(&mut self) -> &mut Self::Queue;
-//         fn queue(&self) -> &Self::Queue;
-//     }
-
-//     pub trait GraphIterator<Q>
-//     where
-//         Q: Queue,
-//     {
-//         fn from_split(&self, queue: Q) -> Self;
-//     }
-
-//     impl<Q, T> SplittableIterator for T
-//     where
-//         Q: Queue,
-//         T: Iterator + HasQueue<Queue = Q> + GraphIterator<Q> + Sized,
-//     {
-//         fn split(&mut self) -> Option<Self> {
-//             let len = self.queue().len();
-//             if len >= 2 {
-//                 let split = self.queue_mut().split_off(len / 2);
-//                 Some(self.from_split(split))
-//             } else {
-//                 None
-//             }
-//         }
-//     }
-// }
-
-// #[cfg(feature = "rayon")]
-// pub use par_iter::*;
 
 pub type NodeIter<I, E> = Result<Box<dyn Iterator<Item = Result<I, E>>>, E>;
 

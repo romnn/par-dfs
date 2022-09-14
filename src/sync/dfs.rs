@@ -8,10 +8,6 @@ pub struct DfsQueue<I, E> {
 }
 
 impl<I, E> Queue for DfsQueue<I, E> {
-    // fn len(&self) -> usize {
-    //     self.inner.len()
-    // }
-
     fn split_off(&mut self, at: usize) -> Self {
         let split = self.inner.split_off(at);
         Self { inner: split }
@@ -212,7 +208,6 @@ mod tests {
                 #[cfg(feature = "rayon")]
                 #[test]
                 fn [< test_ $name _ parallel >] () -> Result<()> {
-                    // use crate::sync::par::IntoParallelIterator;
                     use rayon::iter::IntoParallelIterator;
                     use rayon::iter::ParallelIterator;
 
