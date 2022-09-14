@@ -101,14 +101,14 @@ pub use custom_dfs::*;
 pub struct CollatzNode(pub u32);
 
 impl From<u32> for CollatzNode {
-    #[inline]
+    #[inline(always)]
     fn from(n: u32) -> Self {
         Self(n)
     }
 }
 
 impl CollatzNode {
-    #[inline]
+    #[inline(always)]
     pub fn collatz_children(&self) -> impl Iterator<Item = Result<CollatzNode, Infallible>> {
         let n = self.0;
         let mut children = vec![];
@@ -123,7 +123,7 @@ impl CollatzNode {
         if n > 4 && n % 6 == 4 {
             children.push((n - 1) / 3);
         }
-        children.into_iter().map(|d| Self(d)).map(Result::Ok)
+        children.into_iter().map(Self).map(Result::Ok)
     }
 }
 

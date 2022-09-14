@@ -1,17 +1,15 @@
 use super::queue;
-// use super::{ExtendQueue, FastNode, Node, Queue as QueueTrait};
-use super::*;
+use super::{ExtendQueue, FastNode, Node, Queue};
 use std::iter::Iterator;
 
-#[allow(missing_debug_implementations)]
-#[derive(Clone)]
+#[allow(clippy::module_name_repetitions)]
+#[derive(Debug, Clone)]
 pub struct Dfs<N>
 where
     N: Node,
 {
     queue: queue::Queue<N, N::Error>,
     max_depth: Option<usize>,
-    // allow_circles: bool,
 }
 
 impl<N> Dfs<N>
@@ -25,7 +23,6 @@ where
         D: Into<Option<usize>>,
     {
         let mut queue = queue::Queue::new(allow_circles);
-        // let visited = HashSet::new();
         let root = root.into();
         let max_depth = max_depth.into();
         let depth = 1;
@@ -33,12 +30,7 @@ where
             Ok(children) => queue.add_all(depth, children),
             Err(err) => queue.add(depth, Err(err)),
         }
-        Self {
-            queue,
-            // visited,
-            max_depth,
-            // allow_circles,
-        }
+        Self { queue, max_depth }
     }
 }
 
@@ -52,22 +44,21 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         match self.queue.pop_back() {
             // next node failed
-            Some((depth, Err(err))) => Some(Err(err)),
+            Some((_, Err(err))) => Some(Err(err)),
             // next node succeeded
             Some((depth, Ok(node))) => {
-                let add_children = self
-                    .max_depth
-                    .map(|max_depth| depth < max_depth)
-                    .unwrap_or(true);
-
-                if add_children {
-                    match node.children(depth + 1) {
-                        Ok(children) => {
-                            self.queue.add_all(depth + 1, children);
-                        }
-                        Err(err) => self.queue.add(depth + 1, Err(err)),
+                if let Some(max_depth) = self.max_depth {
+                    if depth >= max_depth {
+                        return Some(Ok(node));
                     }
                 }
+
+                match node.children(depth + 1) {
+                    Ok(children) => {
+                        self.queue.add_all(depth + 1, children);
+                    }
+                    Err(err) => self.queue.add(depth + 1, Err(err)),
+                };
                 Some(Ok(node))
             }
             // no next node
@@ -76,16 +67,14 @@ where
     }
 }
 
-#[allow(missing_debug_implementations)]
-#[derive(Clone)]
+#[allow(clippy::module_name_repetitions)]
+#[derive(Debug, Clone)]
 pub struct FastDfs<N>
 where
     N: FastNode,
 {
     queue: queue::Queue<N, N::Error>,
-    // visited: HashSet<N>,
     max_depth: Option<usize>,
-    // allow_circles: bool,
 }
 
 impl<N> FastDfs<N>
@@ -99,18 +88,12 @@ where
         D: Into<Option<usize>>,
     {
         let mut queue = queue::Queue::new(allow_circles);
-        // let visited = HashSet::new();
         let root: N = root.into();
         let max_depth = max_depth.into();
         if let Err(err) = root.add_children(1, &mut queue) {
             queue.add(0, Err(err));
         }
-        Self {
-            queue,
-            // visited,
-            max_depth,
-            // allow_circles,
-        }
+        Self { queue, max_depth }
     }
 }
 
@@ -124,7 +107,7 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         match self.queue.pop_back() {
             // next node failed
-            Some((depth, Err(err))) => Some(Err(err)),
+            Some((_, Err(err))) => Some(Err(err)),
             // next node succeeded
             Some((depth, Ok(node))) => {
                 if let Some(max_depth) = self.max_depth {
@@ -132,10 +115,10 @@ where
                         return Some(Ok(node));
                     }
                 }
-                match node.add_children(depth + 1, &mut self.queue) {
-                    Ok(_) => Some(Ok(node)),
-                    Err(err) => Some(Err(err)),
+                if let Err(err) = node.add_children(depth + 1, &mut self.queue) {
+                    self.queue.add(depth + 1, Err(err));
                 }
+                Some(Ok(node))
             }
             // no next node
             None => None,
@@ -158,7 +141,7 @@ pub use par::*;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::test::*;
+    use crate::utils::test;
     use anyhow::Result;
     use pretty_assertions::assert_eq;
 
@@ -192,7 +175,7 @@ mod tests {
                         .collect::<Result<Vec<_>, _>>()?;
                     let depths: Vec<_> = output.into_iter()
                         .map(|item| item.0).collect();
-                    assert_eq_vec!(depths, expected_depths);
+                    test::assert_eq_vec!(depths, expected_depths);
                     Ok(())
                 }
             }
@@ -207,40 +190,10 @@ mod tests {
         }
     }
 
-    // macro_rules! test_depths {
-    //     ($name:ident: $values:expr) => {
-    //         paste::item! {
-    //             #[test]
-    //             fn [< test_ $name _ serial >] () -> Result<()> {
-    //                 let (iter, expected_depths) = $values;
-    //                 let output = iter.collect::<Result<Vec<_>, _>>()?;
-    //                 let depths: Vec<_> = output.into_iter()
-    //                     .map(|item| item.0).collect();
-    //                 assert_eq!(depths, expected_depths);
-    //                 Ok(())
-    //             }
-
-    //             #[cfg(feature = "rayon")]
-    //             #[test]
-    //             fn [< test_ $name _ parallel >] () -> Result<()> {
-
-    //                 let (iter, expected_depths) = $values;
-    //                 let output = iter.into_par_iter()
-    //                     .collect::<Result<Vec<_>, _>>()?;
-    //                 let depths: Vec<_> = output.into_iter()
-    //                     .map(|item| item.0).collect();
-    //                 assert_eq_vec!(depths, expected_depths);
-    //                 Ok(())
-    //             }
-
-    //         }
-    //     };
-    // }
-
     test_depths!(
         dfs:
         (
-            Dfs::<TestNode>::new(0, 3, true),
+            Dfs::<test::Node>::new(0, 3, true),
             [1, 2, 3, 3, 2, 3, 3, 1, 2, 3, 3, 2, 3, 3]
         ),
         test_depths_serial,
@@ -250,7 +203,7 @@ mod tests {
     test_depths!(
         fast_dfs:
         (
-            FastDfs::<TestNode>::new(0, 3, true),
+            FastDfs::<test::Node>::new(0, 3, true),
             [1, 2, 3, 3, 2, 3, 3, 1, 2, 3, 3, 2, 3, 3]
         ),
         test_depths_serial,
@@ -260,7 +213,7 @@ mod tests {
     test_depths!(
         fast_dfs_no_circles:
         (
-            FastDfs::<TestNode>::new(0, 3, false),
+            FastDfs::<test::Node>::new(0, 3, false),
             [1, 2, 3]
         ),
         test_depths_serial,
@@ -269,7 +222,7 @@ mod tests {
     test_depths!(
         dfs_no_circles:
         (
-            Dfs::<TestNode>::new(0, 3, false),
+            Dfs::<test::Node>::new(0, 3, false),
             [1, 2, 3]
         ),
         test_depths_serial,

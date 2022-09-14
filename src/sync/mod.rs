@@ -20,9 +20,16 @@ pub trait ExtendQueue<I, E> {
 
 pub trait Queue<I, E> {
     fn len(&self) -> usize;
+
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     fn pop_back(&mut self) -> Option<(usize, Result<I, E>)>;
+
     fn pop_front(&mut self) -> Option<(usize, Result<I, E>)>;
-    fn split_off(&mut self, at: usize) -> Self;
+
+    #[must_use] fn split_off(&mut self, at: usize) -> Self;
 }
 
 pub type NodeIter<I, E> = Result<Box<dyn Iterator<Item = Result<I, E>>>, E>;

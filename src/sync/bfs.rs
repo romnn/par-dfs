@@ -1,77 +1,20 @@
 use super::queue;
-use super::*;
-// use std::collections::{HashSet, VecDeque};
+use super::{ExtendQueue, FastNode, Node, Queue};
 use std::iter::Iterator;
 
-// #[derive(Clone)]
-// pub struct BfsQueue<I, E> {
-//     inner: VecDeque<(usize, Result<I, E>)>,
-// }
-
-// impl<I, E> Queue for BfsQueue<I, E> {
-//     fn split_off(&mut self, at: usize) -> Self {
-//         let split = self.inner.split_off(at);
-//         Self { inner: split }
-//     }
-// }
-
-// impl<I, E> std::ops::Deref for BfsQueue<I, E> {
-//     type Target = VecDeque<(usize, Result<I, E>)>;
-
-//     fn deref(&self) -> &Self::Target {
-//         &self.inner
-//     }
-// }
-
-// impl<I, E> std::ops::DerefMut for BfsQueue<I, E> {
-//     fn deref_mut(&mut self) -> &mut Self::Target {
-//         &mut self.inner
-//     }
-// }
-
-// impl<I, E> BfsQueue<I, E> {
-//     pub fn new() -> Self {
-//         Self {
-//             inner: VecDeque::new(),
-//         }
-//     }
-// }
-
-// impl<I, E> Default for BfsQueue<I, E> {
-//     fn default() -> Self {
-//         Self::new()
-//     }
-// }
-
-// impl<I, E> ExtendQueue<I, E> for BfsQueue<I, E> {
-//     fn add(&mut self, depth: usize, item: Result<I, E>) {
-//         self.inner.push_back((depth, item));
-//     }
-
-//     fn add_all<Iter>(&mut self, depth: usize, iter: Iter)
-//     where
-//         Iter: IntoIterator<Item = Result<I, E>>,
-//     {
-//         self.inner.extend(iter.into_iter().map(|i| (depth, i)));
-//     }
-// }
-
-#[allow(missing_debug_implementations)]
-#[derive(Clone)]
+#[allow(clippy::module_name_repetitions)]
+#[derive(Debug, Clone)]
 pub struct Bfs<N>
 where
     N: Node,
 {
     queue: queue::Queue<N, N::Error>,
-    // visited: HashSet<N>,
     max_depth: Option<usize>,
-    // allow_circles: bool,
 }
 
-// impl<N, E> Bfs<N>
 impl<N> Bfs<N>
 where
-    N: Node, // <Error = E>,
+    N: Node,
 {
     #[inline]
     pub fn new<R, D>(root: R, max_depth: D, allow_circles: bool) -> Self
@@ -80,7 +23,6 @@ where
         D: Into<Option<usize>>,
     {
         let mut queue = queue::Queue::new(allow_circles);
-        // let visited = HashSet::new();
         let root = root.into();
         let max_depth = max_depth.into();
 
@@ -90,12 +32,7 @@ where
             Err(err) => queue.add(0, Err(err)),
         }
 
-        Self {
-            queue,
-            // visited,
-            max_depth,
-            // allow_circles,
-        }
+        Self { queue, max_depth }
     }
 }
 
@@ -105,11 +42,11 @@ where
 {
     type Item = Result<N, N::Error>;
 
-    #[inline]
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         match self.queue.pop_front() {
             // next node failed
-            Some((depth, Err(err))) => Some(Err(err)),
+            Some((_, Err(err))) => Some(Err(err)),
             // next node succeeded
             Some((depth, Ok(node))) => {
                 if let Some(max_depth) = self.max_depth {
@@ -120,10 +57,10 @@ where
                 match node.children(depth + 1) {
                     Ok(children) => {
                         self.queue.add_all(depth + 1, children);
-                        Some(Ok(node))
                     }
-                    Err(err) => Some(Err(err)),
-                }
+                    Err(err) => self.queue.add(depth + 1, Err(err)),
+                };
+                Some(Ok(node))
             }
             // no next node
             None => None,
@@ -131,41 +68,33 @@ where
     }
 }
 
-#[allow(missing_debug_implementations)]
-#[derive(Clone)]
+#[allow(clippy::module_name_repetitions)]
+#[derive(Debug, Clone)]
 pub struct FastBfs<N>
 where
     N: FastNode,
 {
     queue: queue::Queue<N, N::Error>,
-    // visited: HashSet<N>,
     max_depth: Option<usize>,
-    // allow_circles: bool,
 }
 
 impl<N> FastBfs<N>
 where
     N: FastNode,
 {
-    #[inline]
+    #[inline(always)]
     pub fn new<R, D>(root: R, max_depth: D, allow_circles: bool) -> Self
     where
         R: Into<N>,
         D: Into<Option<usize>>,
     {
         let mut queue = queue::Queue::new(allow_circles);
-        // let visited = HashSet::new();
         let root: N = root.into();
         let max_depth = max_depth.into();
         if let Err(err) = root.add_children(1, &mut queue) {
             queue.add(0, Err(err));
         }
-        Self {
-            queue,
-            // visited,
-            max_depth,
-            // allow_circles,
-        }
+        Self { queue, max_depth }
     }
 }
 
@@ -175,11 +104,11 @@ where
 {
     type Item = Result<N, N::Error>;
 
-    #[inline]
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         match self.queue.pop_front() {
             // next node failed
-            Some((depth, Err(err))) => Some(Err(err)),
+            Some((_, Err(err))) => Some(Err(err)),
             // next node succeeded
             Some((depth, Ok(node))) => {
                 if let Some(max_depth) = self.max_depth {
@@ -187,10 +116,10 @@ where
                         return Some(Ok(node));
                     }
                 }
-                match node.add_children(depth + 1, &mut self.queue) {
-                    Ok(_) => Some(Ok(node)),
-                    Err(err) => Some(Err(err)),
+                if let Err(err) = node.add_children(depth + 1, &mut self.queue) {
+                    self.queue.add(depth + 1, Err(err));
                 }
+                Some(Ok(node))
             }
             // no next node
             None => None,
@@ -213,13 +142,15 @@ pub use par::*;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sync::*;
-    use crate::utils::test::*;
+    use crate::utils::test;
     use anyhow::Result;
     use pretty_assertions::assert_eq;
     use std::cmp::Ordering;
 
-    macro_rules! test_depths {
+    #[cfg(feature = "rayon")]
+    use rayon::iter::{IntoParallelIterator, ParallelIterator};
+
+    macro_rules! test_depths_serial {
         ($name:ident: $values:expr) => {
             paste::item! {
                 #[test]
@@ -228,59 +159,75 @@ mod tests {
                     let output = iter.collect::<Result<Vec<_>, _>>()?;
                     let depths: Vec<_> = output.into_iter()
                         .map(|item| item.0).collect();
-                    assert!(is_monotonic(&depths, Ordering::Greater));
+                    assert!(test::is_monotonic(&depths, Ordering::Greater));
                     assert_eq!(depths, expected_depths);
                     Ok(())
                 }
+            }
+        };
+    }
 
+    macro_rules! test_depths_parallel {
+        ($name:ident: $values:expr) => {
+            paste::item! {
                 #[cfg(feature = "rayon")]
                 #[test]
                 fn [< test_ $name _ parallel >] () -> Result<()> {
-                    use rayon::iter::IntoParallelIterator;
-                    use rayon::iter::ParallelIterator;
-
                     let (iter, expected_depths) = $values;
                     let output = iter.into_par_iter()
                         .collect::<Result<Vec<_>, _>>()?;
                     let depths: Vec<_> = output.into_iter()
                         .map(|item| item.0).collect();
-                    assert_eq_vec!(depths, expected_depths);
+                    test::assert_eq_vec!(depths, expected_depths);
                     Ok(())
                 }
-
             }
         };
+    }
+
+    macro_rules! test_depths {
+        ($name:ident: $values:expr, $($macro:ident,)*) => {
+            $(
+                $macro!($name: $values);
+            )*
+        }
     }
 
     test_depths!(
         bfs:
         (
-            Bfs::<TestNode>::new(0, 3, true),
+            Bfs::<test::Node>::new(0, 3, true),
             [1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3]
-        )
+        ),
+        test_depths_serial,
+        test_depths_parallel,
     );
 
     test_depths!(
         fast_bfs:
         (
-            FastBfs::<TestNode>::new(0, 3, true),
+            FastBfs::<test::Node>::new(0, 3, true),
             [1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3]
-        )
+        ),
+        test_depths_serial,
+        test_depths_parallel,
     );
 
-    // test_depths!(
-    //     fast_bfs_no_circles:
-    //     (
-    //         FastBfs::<TestNode>::new(0, 3, false),
-    //         [1, 2, 3]
-    //     )
-    // );
+    test_depths!(
+        fast_bfs_no_circles:
+        (
+            FastBfs::<test::Node>::new(0, 3, false),
+            [1, 2, 3]
+        ),
+        test_depths_serial,
+    );
 
-    // test_depths!(
-    //     bfs_no_circles:
-    //     (
-    //         Bfs::<TestNode>::new(0, 3, false),
-    //         [1, 2, 3]
-    //     )
-    // );
+    test_depths!(
+        bfs_no_circles:
+        (
+            Bfs::<test::Node>::new(0, 3, false),
+            [1, 2, 3]
+        ),
+        test_depths_serial,
+    );
 }
