@@ -3,23 +3,23 @@ name = "par-dfs"
 version = "0.1.0"
 edition = "2021"
 authors = ["romnn <contact@romnn.com>"]
-description = "bump semver git version"
+description = "Parallel, serial, and async dfs and bfs traversal"
 license-file = "LICENSE"
 readme = "README.md"
-homepage = "https://github.com/romnn/bumpversion"
-repository = "https://github.com/romnn/bumpversion"
+homepage = "https://github.com/romnn/par-dfs"
+repository = "https://github.com/romnn/par-dfs"
 categories = [
-  "multimedia::images",
-  "command-line-utilities",
-  "wasm",
-  "web-programming"
+  "concurrency",
+  "asynchronous",
+  "data-structures",
+  "algorithms"
 ]
 keywords = [
-  "image",
-  "35mm",
-  "film",
-  "photography",
-  "borders"
+  "dfs",
+  "bfs",
+  "async",
+  "rayon",
+  "tokio"
 ]
 exclude = []
 

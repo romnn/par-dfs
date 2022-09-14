@@ -2,10 +2,12 @@ pub mod bfs;
 pub mod dfs;
 #[cfg(feature = "rayon")]
 pub mod par;
+pub mod queue;
 
 pub use bfs::*;
 pub use dfs::*;
 
+use std::hash::Hash;
 use std::iter::{IntoIterator, Iterator};
 
 pub trait ExtendQueue<I, E> {
@@ -16,29 +18,30 @@ pub trait ExtendQueue<I, E> {
         Iter: IntoIterator<Item = Result<I, E>>;
 }
 
-pub trait Queue {
+pub trait Queue<I, E> {
+    fn len(&self) -> usize;
+    fn pop_back(&mut self) -> Option<(usize, Result<I, E>)>;
+    fn pop_front(&mut self) -> Option<(usize, Result<I, E>)>;
     fn split_off(&mut self, at: usize) -> Self;
 }
 
 pub type NodeIter<I, E> = Result<Box<dyn Iterator<Item = Result<I, E>>>, E>;
 
-pub trait Node: std::fmt::Debug
+pub trait Node
 where
-    Self: Sized,
+    Self: Hash + Eq + Clone + std::fmt::Debug,
 {
-    type Error: std::fmt::Debug;
+    type Error: Hash + Eq + Clone + std::fmt::Debug;
 
-    #[inline]
     fn children(&self, depth: usize) -> NodeIter<Self, Self::Error>;
 }
 
-pub trait FastNode: std::fmt::Debug
+pub trait FastNode
 where
-    Self: Sized,
+    Self: Hash + Eq + Clone + std::fmt::Debug,
 {
-    type Error: std::fmt::Debug;
+    type Error: Hash + Eq + Clone + std::fmt::Debug;
 
-    #[inline]
     fn add_children<E>(&self, depth: usize, queue: &mut E) -> Result<(), Self::Error>
     where
         E: ExtendQueue<Self, Self::Error>;

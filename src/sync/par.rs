@@ -129,7 +129,9 @@ macro_rules! parallel_iterator {
                     let split = self.queue.split_off(len / 2);
                     Some(Self {
                         queue: split,
+                        // visited: self.visited.clone(),
                         max_depth: self.max_depth,
+                        // allow_circles: self.allow_circles,
                     })
                 } else {
                     None

@@ -2,10 +2,9 @@ use criterion::{
     black_box, criterion_group, criterion_main, BenchmarkGroup, Criterion, SamplingMode,
 };
 use par_dfs::sync::*;
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::convert::Infallible;
 use std::iter::Iterator;
-use std::time::Duration;
 
 /// Enumerates the numbers that reach the given starting point when iterating
 /// the [Collatz] map, by depth-first search over the [graph] of their orbits.
@@ -24,13 +23,17 @@ pub mod custom_dfs {
     pub struct CollatzDfs {
         max_depth: Option<usize>,
         queue: Queue,
+        visited: HashSet<u32>,
+        allow_circles: bool,
     }
 
     impl CollatzDfs {
-        pub fn new<D: Into<Option<usize>>>(start: u32, max_depth: D) -> Self {
+        pub fn new<D: Into<Option<usize>>>(start: u32, max_depth: D, allow_circles: bool) -> Self {
             Self {
                 max_depth: max_depth.into(),
                 queue: VecDeque::from_iter([(0, Ok(start))]),
+                visited: HashSet::from_iter([start]),
+                allow_circles,
             }
         }
     }
@@ -50,16 +53,21 @@ pub mod custom_dfs {
                     // n can be reached by dividing by two
                     // as long as it doesn't overflow
                     if let Some(even) = n.checked_mul(2) {
-                        self.queue.push_back((depth, Ok(even)));
+                        if self.allow_circles || !self.visited.contains(&even) {
+                            self.queue.push_back((depth, Ok(even)));
+                        }
                     }
 
                     // n can be reached by 3x + 1 iff (n - 1) / 3 is an odd integer
                     if n > 4 && n % 6 == 4 {
-                        self.queue.push_back((depth, Ok((n - 1) / 3)));
+                        let odd = (n - 1) / 3;
+                        if self.allow_circles || !self.visited.contains(&odd) {
+                            self.queue.push_back((depth, Ok(odd)));
+                        }
                     }
                     Some(Ok(n))
                 }
-                Some((depth, n)) => Some(n),
+                Some((_, n)) => Some(n),
                 None => None,
             }
         }
@@ -71,8 +79,13 @@ pub mod custom_dfs {
             let len = self.queue.len();
             if len >= 2 {
                 let split = self.queue.split_off(len / 2);
+                // cannot avoid circles when running in parallel
+                self.visited.clear();
+                self.allow_circles = true;
                 Some(Self {
                     queue: split,
+                    visited: HashSet::new(),
+                    allow_circles: true,
                     max_depth: self.max_depth,
                 })
             } else {
@@ -84,7 +97,7 @@ pub mod custom_dfs {
 
 pub use custom_dfs::*;
 
-#[derive(Clone, Debug)]
+#[derive(Hash, PartialEq, Eq, Clone, Debug)]
 pub struct CollatzNode(pub u32);
 
 impl From<u32> for CollatzNode {
@@ -116,7 +129,6 @@ impl CollatzNode {
 
 pub mod sync {
     use super::*;
-    use par_dfs::sync::*;
     use std::convert::Infallible;
 
     impl FastNode for super::CollatzNode {
@@ -147,7 +159,7 @@ pub mod sync {
         type Error = Infallible;
 
         #[inline(always)]
-        fn children(&self, depth: usize) -> NodeIter<Self, Self::Error> {
+        fn children(&self, _depth: usize) -> NodeIter<Self, Self::Error> {
             Ok(Box::new(self.collatz_children()))
         }
     }
@@ -155,6 +167,7 @@ pub mod sync {
 
 const START: u32 = 1;
 const LIMIT: Option<usize> = Some(1_00);
+const CIRCLES: bool = true;
 
 fn configure_group<M>(group: &mut BenchmarkGroup<M>)
 where
@@ -206,27 +219,27 @@ macro_rules! bench_collatz_sync {
 
 bench_collatz_sync!(
     bench_collatz_sync_fast_bfs:
-    "collatz/sync/fastbfs", FastBfs::<CollatzNode>::new(black_box(START), LIMIT)
+    "collatz/sync/fastbfs", FastBfs::<CollatzNode>::new(black_box(START), LIMIT, CIRCLES)
 );
 
 bench_collatz_sync!(
     bench_collatz_sync_bfs:
-    "collatz/sync/bfs", Bfs::<CollatzNode>::new(black_box(START), LIMIT)
+    "collatz/sync/bfs", Bfs::<CollatzNode>::new(black_box(START), LIMIT, CIRCLES)
 );
 
 bench_collatz_sync!(
     bench_collatz_sync_fast_dfs:
-    "collatz/sync/fastdfs", FastDfs::<CollatzNode>::new(black_box(START), LIMIT)
+    "collatz/sync/fastdfs", FastDfs::<CollatzNode>::new(black_box(START), LIMIT, CIRCLES)
 );
 
 bench_collatz_sync!(
     bench_collatz_sync_dfs:
-    "collatz/sync/dfs", Dfs::<CollatzNode>::new(black_box(START), LIMIT)
+    "collatz/sync/dfs", Dfs::<CollatzNode>::new(black_box(START), LIMIT, CIRCLES)
 );
 
 bench_collatz_sync!(
     bench_collatz_sync_custom_dfs:
-    "collatz/sync/customdfs", CollatzDfs::new(black_box(START), LIMIT)
+    "collatz/sync/customdfs", CollatzDfs::new(black_box(START), LIMIT, CIRCLES)
 );
 
 criterion_group!(

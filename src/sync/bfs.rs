@@ -1,53 +1,60 @@
+use super::queue;
 use super::*;
-use std::collections::VecDeque;
+// use std::collections::{HashSet, VecDeque};
 use std::iter::Iterator;
 
-#[derive(Clone)]
-pub struct BfsQueue<I, E> {
-    inner: VecDeque<(usize, Result<I, E>)>,
-}
+// #[derive(Clone)]
+// pub struct BfsQueue<I, E> {
+//     inner: VecDeque<(usize, Result<I, E>)>,
+// }
 
-impl<I, E> Queue for BfsQueue<I, E> {
-    fn split_off(&mut self, at: usize) -> Self {
-        let split = self.inner.split_off(at);
-        Self { inner: split }
-    }
-}
+// impl<I, E> Queue for BfsQueue<I, E> {
+//     fn split_off(&mut self, at: usize) -> Self {
+//         let split = self.inner.split_off(at);
+//         Self { inner: split }
+//     }
+// }
 
-impl<I, E> std::ops::Deref for BfsQueue<I, E> {
-    type Target = VecDeque<(usize, Result<I, E>)>;
+// impl<I, E> std::ops::Deref for BfsQueue<I, E> {
+//     type Target = VecDeque<(usize, Result<I, E>)>;
 
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
+//     fn deref(&self) -> &Self::Target {
+//         &self.inner
+//     }
+// }
 
-impl<I, E> std::ops::DerefMut for BfsQueue<I, E> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
-    }
-}
+// impl<I, E> std::ops::DerefMut for BfsQueue<I, E> {
+//     fn deref_mut(&mut self) -> &mut Self::Target {
+//         &mut self.inner
+//     }
+// }
 
-impl<I, E> BfsQueue<I, E> {
-    pub fn new() -> Self {
-        Self {
-            inner: VecDeque::new(),
-        }
-    }
-}
+// impl<I, E> BfsQueue<I, E> {
+//     pub fn new() -> Self {
+//         Self {
+//             inner: VecDeque::new(),
+//         }
+//     }
+// }
 
-impl<I, E> ExtendQueue<I, E> for BfsQueue<I, E> {
-    fn add(&mut self, depth: usize, item: Result<I, E>) {
-        self.inner.push_back((depth, item));
-    }
+// impl<I, E> Default for BfsQueue<I, E> {
+//     fn default() -> Self {
+//         Self::new()
+//     }
+// }
 
-    fn add_all<Iter>(&mut self, depth: usize, iter: Iter)
-    where
-        Iter: IntoIterator<Item = Result<I, E>>,
-    {
-        self.inner.extend(iter.into_iter().map(|i| (depth, i)));
-    }
-}
+// impl<I, E> ExtendQueue<I, E> for BfsQueue<I, E> {
+//     fn add(&mut self, depth: usize, item: Result<I, E>) {
+//         self.inner.push_back((depth, item));
+//     }
+
+//     fn add_all<Iter>(&mut self, depth: usize, iter: Iter)
+//     where
+//         Iter: IntoIterator<Item = Result<I, E>>,
+//     {
+//         self.inner.extend(iter.into_iter().map(|i| (depth, i)));
+//     }
+// }
 
 #[allow(missing_debug_implementations)]
 #[derive(Clone)]
@@ -55,21 +62,25 @@ pub struct Bfs<N>
 where
     N: Node,
 {
-    queue: BfsQueue<N, N::Error>,
+    queue: queue::Queue<N, N::Error>,
+    // visited: HashSet<N>,
     max_depth: Option<usize>,
+    // allow_circles: bool,
 }
 
-impl<N, E> Bfs<N>
+// impl<N, E> Bfs<N>
+impl<N> Bfs<N>
 where
-    N: Node<Error = E>,
+    N: Node, // <Error = E>,
 {
     #[inline]
-    pub fn new<R, D>(root: R, max_depth: D) -> Self
+    pub fn new<R, D>(root: R, max_depth: D, allow_circles: bool) -> Self
     where
         R: Into<N>,
         D: Into<Option<usize>>,
     {
-        let mut queue = BfsQueue::new();
+        let mut queue = queue::Queue::new(allow_circles);
+        // let visited = HashSet::new();
         let root = root.into();
         let max_depth = max_depth.into();
 
@@ -79,13 +90,18 @@ where
             Err(err) => queue.add(0, Err(err)),
         }
 
-        Self { queue, max_depth }
+        Self {
+            queue,
+            // visited,
+            max_depth,
+            // allow_circles,
+        }
     }
 }
 
-impl<N, E> Iterator for Bfs<N>
+impl<N> Iterator for Bfs<N>
 where
-    N: Node<Error = E>,
+    N: Node,
 {
     type Item = Result<N, N::Error>;
 
@@ -121,8 +137,10 @@ pub struct FastBfs<N>
 where
     N: FastNode,
 {
-    queue: BfsQueue<N, N::Error>,
+    queue: queue::Queue<N, N::Error>,
+    // visited: HashSet<N>,
     max_depth: Option<usize>,
+    // allow_circles: bool,
 }
 
 impl<N> FastBfs<N>
@@ -130,18 +148,24 @@ where
     N: FastNode,
 {
     #[inline]
-    pub fn new<R, D>(root: R, max_depth: D) -> Self
+    pub fn new<R, D>(root: R, max_depth: D, allow_circles: bool) -> Self
     where
         R: Into<N>,
         D: Into<Option<usize>>,
     {
-        let mut queue = BfsQueue::new();
+        let mut queue = queue::Queue::new(allow_circles);
+        // let visited = HashSet::new();
         let root: N = root.into();
         let max_depth = max_depth.into();
         if let Err(err) = root.add_children(1, &mut queue) {
             queue.add(0, Err(err));
         }
-        Self { queue, max_depth }
+        Self {
+            queue,
+            // visited,
+            max_depth,
+            // allow_circles,
+        }
     }
 }
 
@@ -190,7 +214,6 @@ pub use par::*;
 mod tests {
     use super::*;
     use crate::sync::*;
-    use crate::utils::test::sync::*;
     use crate::utils::test::*;
     use anyhow::Result;
     use pretty_assertions::assert_eq;
@@ -232,7 +255,7 @@ mod tests {
     test_depths!(
         bfs:
         (
-            Bfs::<TestNode>::new(0, 3),
+            Bfs::<TestNode>::new(0, 3, true),
             [1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3]
         )
     );
@@ -240,8 +263,24 @@ mod tests {
     test_depths!(
         fast_bfs:
         (
-            FastBfs::<TestNode>::new(0, 3),
+            FastBfs::<TestNode>::new(0, 3, true),
             [1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3]
         )
     );
+
+    // test_depths!(
+    //     fast_bfs_no_circles:
+    //     (
+    //         FastBfs::<TestNode>::new(0, 3, false),
+    //         [1, 2, 3]
+    //     )
+    // );
+
+    // test_depths!(
+    //     bfs_no_circles:
+    //     (
+    //         Bfs::<TestNode>::new(0, 3, false),
+    //         [1, 2, 3]
+    //     )
+    // );
 }

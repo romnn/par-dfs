@@ -1,53 +1,7 @@
+use super::queue;
+// use super::{ExtendQueue, FastNode, Node, Queue as QueueTrait};
 use super::*;
-use std::collections::VecDeque;
 use std::iter::Iterator;
-
-#[derive(Clone)]
-pub struct DfsQueue<I, E> {
-    inner: VecDeque<(usize, Result<I, E>)>,
-}
-
-impl<I, E> Queue for DfsQueue<I, E> {
-    fn split_off(&mut self, at: usize) -> Self {
-        let split = self.inner.split_off(at);
-        Self { inner: split }
-    }
-}
-
-impl<I, E> std::ops::Deref for DfsQueue<I, E> {
-    type Target = VecDeque<(usize, Result<I, E>)>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
-
-impl<I, E> std::ops::DerefMut for DfsQueue<I, E> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
-    }
-}
-
-impl<I, E> DfsQueue<I, E> {
-    pub fn new() -> Self {
-        Self {
-            inner: VecDeque::new(),
-        }
-    }
-}
-
-impl<I, E> ExtendQueue<I, E> for DfsQueue<I, E> {
-    fn add(&mut self, depth: usize, item: Result<I, E>) {
-        self.inner.push_back((depth, item));
-    }
-
-    fn add_all<Iter>(&mut self, depth: usize, iter: Iter)
-    where
-        Iter: IntoIterator<Item = Result<I, E>>,
-    {
-        self.inner.extend(iter.into_iter().map(|i| (depth, i)));
-    }
-}
 
 #[allow(missing_debug_implementations)]
 #[derive(Clone)]
@@ -55,8 +9,9 @@ pub struct Dfs<N>
 where
     N: Node,
 {
-    queue: DfsQueue<N, N::Error>,
+    queue: queue::Queue<N, N::Error>,
     max_depth: Option<usize>,
+    // allow_circles: bool,
 }
 
 impl<N> Dfs<N>
@@ -64,12 +19,13 @@ where
     N: Node,
 {
     #[inline]
-    pub fn new<R, D>(root: R, max_depth: D) -> Self
+    pub fn new<R, D>(root: R, max_depth: D, allow_circles: bool) -> Self
     where
         R: Into<N>,
         D: Into<Option<usize>>,
     {
-        let mut queue = DfsQueue::new();
+        let mut queue = queue::Queue::new(allow_circles);
+        // let visited = HashSet::new();
         let root = root.into();
         let max_depth = max_depth.into();
         let depth = 1;
@@ -77,7 +33,12 @@ where
             Ok(children) => queue.add_all(depth, children),
             Err(err) => queue.add(depth, Err(err)),
         }
-        Self { queue, max_depth }
+        Self {
+            queue,
+            // visited,
+            max_depth,
+            // allow_circles,
+        }
     }
 }
 
@@ -94,18 +55,20 @@ where
             Some((depth, Err(err))) => Some(Err(err)),
             // next node succeeded
             Some((depth, Ok(node))) => {
-                if let Some(max_depth) = self.max_depth {
-                    if depth >= max_depth {
-                        return Some(Ok(node));
+                let add_children = self
+                    .max_depth
+                    .map(|max_depth| depth < max_depth)
+                    .unwrap_or(true);
+
+                if add_children {
+                    match node.children(depth + 1) {
+                        Ok(children) => {
+                            self.queue.add_all(depth + 1, children);
+                        }
+                        Err(err) => self.queue.add(depth + 1, Err(err)),
                     }
                 }
-                match node.children(depth + 1) {
-                    Ok(children) => {
-                        self.queue.add_all(depth + 1, children);
-                        Some(Ok(node))
-                    }
-                    Err(err) => Some(Err(err)),
-                }
+                Some(Ok(node))
             }
             // no next node
             None => None,
@@ -119,8 +82,10 @@ pub struct FastDfs<N>
 where
     N: FastNode,
 {
-    queue: DfsQueue<N, N::Error>,
+    queue: queue::Queue<N, N::Error>,
+    // visited: HashSet<N>,
     max_depth: Option<usize>,
+    // allow_circles: bool,
 }
 
 impl<N> FastDfs<N>
@@ -128,18 +93,24 @@ where
     N: FastNode,
 {
     #[inline]
-    pub fn new<R, D>(root: R, max_depth: D) -> Self
+    pub fn new<R, D>(root: R, max_depth: D, allow_circles: bool) -> Self
     where
         R: Into<N>,
         D: Into<Option<usize>>,
     {
-        let mut queue = DfsQueue::new();
+        let mut queue = queue::Queue::new(allow_circles);
+        // let visited = HashSet::new();
         let root: N = root.into();
         let max_depth = max_depth.into();
         if let Err(err) = root.add_children(1, &mut queue) {
             queue.add(0, Err(err));
         }
-        Self { queue, max_depth }
+        Self {
+            queue,
+            // visited,
+            max_depth,
+            // allow_circles,
+        }
     }
 }
 
@@ -187,12 +158,14 @@ pub use par::*;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::test::sync::*;
     use crate::utils::test::*;
     use anyhow::Result;
     use pretty_assertions::assert_eq;
 
-    macro_rules! test_depths {
+    #[cfg(feature = "rayon")]
+    use rayon::iter::{IntoParallelIterator, ParallelIterator};
+
+    macro_rules! test_depths_serial {
         ($name:ident: $values:expr) => {
             paste::item! {
                 #[test]
@@ -204,13 +177,16 @@ mod tests {
                     assert_eq!(depths, expected_depths);
                     Ok(())
                 }
+            }
+        };
+    }
 
+    macro_rules! test_depths_parallel {
+        ($name:ident: $values:expr) => {
+            paste::item! {
                 #[cfg(feature = "rayon")]
                 #[test]
                 fn [< test_ $name _ parallel >] () -> Result<()> {
-                    use rayon::iter::IntoParallelIterator;
-                    use rayon::iter::ParallelIterator;
-
                     let (iter, expected_depths) = $values;
                     let output = iter.into_par_iter()
                         .collect::<Result<Vec<_>, _>>()?;
@@ -219,24 +195,83 @@ mod tests {
                     assert_eq_vec!(depths, expected_depths);
                     Ok(())
                 }
-
             }
         };
     }
 
+    macro_rules! test_depths {
+        ($name:ident: $values:expr, $($macro:ident,)*) => {
+            $(
+                $macro!($name: $values);
+            )*
+        }
+    }
+
+    // macro_rules! test_depths {
+    //     ($name:ident: $values:expr) => {
+    //         paste::item! {
+    //             #[test]
+    //             fn [< test_ $name _ serial >] () -> Result<()> {
+    //                 let (iter, expected_depths) = $values;
+    //                 let output = iter.collect::<Result<Vec<_>, _>>()?;
+    //                 let depths: Vec<_> = output.into_iter()
+    //                     .map(|item| item.0).collect();
+    //                 assert_eq!(depths, expected_depths);
+    //                 Ok(())
+    //             }
+
+    //             #[cfg(feature = "rayon")]
+    //             #[test]
+    //             fn [< test_ $name _ parallel >] () -> Result<()> {
+
+    //                 let (iter, expected_depths) = $values;
+    //                 let output = iter.into_par_iter()
+    //                     .collect::<Result<Vec<_>, _>>()?;
+    //                 let depths: Vec<_> = output.into_iter()
+    //                     .map(|item| item.0).collect();
+    //                 assert_eq_vec!(depths, expected_depths);
+    //                 Ok(())
+    //             }
+
+    //         }
+    //     };
+    // }
+
     test_depths!(
         dfs:
         (
-            Dfs::<TestNode>::new(0, 3),
+            Dfs::<TestNode>::new(0, 3, true),
             [1, 2, 3, 3, 2, 3, 3, 1, 2, 3, 3, 2, 3, 3]
-        )
+        ),
+        test_depths_serial,
+        test_depths_parallel,
     );
 
     test_depths!(
         fast_dfs:
         (
-            FastDfs::<TestNode>::new(0, 3),
+            FastDfs::<TestNode>::new(0, 3, true),
             [1, 2, 3, 3, 2, 3, 3, 1, 2, 3, 3, 2, 3, 3]
-        )
+        ),
+        test_depths_serial,
+        test_depths_parallel,
+    );
+
+    test_depths!(
+        fast_dfs_no_circles:
+        (
+            FastDfs::<TestNode>::new(0, 3, false),
+            [1, 2, 3]
+        ),
+        test_depths_serial,
+    );
+
+    test_depths!(
+        dfs_no_circles:
+        (
+            Dfs::<TestNode>::new(0, 3, false),
+            [1, 2, 3]
+        ),
+        test_depths_serial,
     );
 }

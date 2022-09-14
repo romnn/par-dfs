@@ -21,11 +21,11 @@ pub mod test {
     }
     pub(crate) use assert_eq_vec;
 
-    #[derive(thiserror::Error, Clone, Debug)]
+    #[derive(thiserror::Error, Hash, PartialEq, Eq, Clone, Debug)]
     #[error("error")]
     pub struct TestError;
 
-    #[derive(Clone, Debug)]
+    #[derive(PartialEq, Eq, Hash, Clone, Debug)]
     pub struct TestNode(pub usize);
 
     impl From<usize> for TestNode {
