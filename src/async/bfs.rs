@@ -18,17 +18,18 @@ where
 
 #[derive(Default)]
 #[pin_project]
-pub struct Dfs<N>
+pub struct Bfs<N>
 where
     N: Node,
 {
-    // #[pin]
-    stack: Stack<N, N::Error>,
+    // stack: Stack<N, N::Error>,
+    #[pin]
+    current_stream: Option<(usize, NodeStream<N, N::Error>)>,
     child_streams_futs: StreamQueue<N, N::Error>,
     max_depth: Option<usize>,
 }
 
-impl<N> Dfs<N>
+impl<N> Bfs<N>
 where
     N: Node + Send + Unpin + Clone + 'static,
     N::Error: Send + 'static,
@@ -46,17 +47,18 @@ where
         let child_stream_fut = Arc::new(root)
             .children(depth)
             .map(move |stream| (depth, stream));
-        child_streams_futs.push_front(Box::pin(child_stream_fut));
+        child_streams_futs.push_back(Box::pin(child_stream_fut));
 
         Self {
-            stack: vec![],
+            // stack: vec![],
+            current_stream: None,
             child_streams_futs,
             max_depth,
         }
     }
 }
 
-impl<N> Stream for Dfs<N>
+impl<N> Stream for Bfs<N>
 where
     N: Node + Send + Clone + Unpin + 'static,
     N::Error: Send + 'static,
@@ -67,41 +69,13 @@ where
         let mut this = self.project();
 
         println!("------- poll");
-        println!("stack size: {:?}", this.stack.len());
+        println!("has current stream: {:?}", this.current_stream.is_some());
 
-        // we first poll for the newest child stream in dfs
-        println!("child stream futs: {:?}", this.child_streams_futs.len());
-        match this.child_streams_futs.poll_next_unpin(cx) {
-            Poll::Ready(Some((depth, stream))) => {
-                println!(
-                    "child stream fut depth {} completed: {:?}",
-                    depth,
-                    stream.is_ok()
-                );
-                let stream = match stream {
-                    Ok(stream) => stream.boxed(),
-                    Err(err) => futures::stream::iter([Err(err)]).boxed(),
-                };
-                this.stack.push((depth, Box::pin(stream)));
-                println!("stack size: {}", this.stack.len());
-            }
-            // when there is no child stream future,
-            // continue to poll the current stream
-            Poll::Ready(None) => {
-                println!("no child stream to wait for");
-            }
-            // still waiting for the new child stream
-            Poll::Pending => {
-                println!("child stream is still pending");
-                return Poll::Pending;
-            }
-        }
-
-        // at this point, the last element in the stack is the current level
         loop {
-            let next_item = match this.stack.last_mut() {
-                Some((depth, current_stream)) => {
-                    let next_item = current_stream.as_mut().poll_next(cx);
+            let mut current_stream = this.current_stream.as_mut().as_pin_mut();
+            let next_item = match current_stream.as_deref_mut() {
+                Some((depth, stream)) => {
+                    let next_item = stream.as_mut().poll_next(cx);
                     Some(next_item.map(|node| (depth, node)))
                 }
                 None => None,
@@ -128,29 +102,105 @@ where
                         .children(next_depth)
                         .map(move |stream| (next_depth, stream));
                     this.child_streams_futs
-                        .push_front(Box::pin(child_stream_fut));
+                        .push_back(Box::pin(child_stream_fut));
 
                     return Poll::Ready(Some(Ok(node)));
-                }
-                // stream completed for this level completed
-                Some(Poll::Ready((depth, None))) => {
-                    let _ = this.stack.pop();
-                    println!("pop stack to size: {}", this.stack.len());
-                    // try again in the next round
-                    // returning Poll::Pending here is bad because the runtime can not know when to poll
-                    // us again to make progress since we never passed the cx to poll of the next
-                    // level stream
                 }
                 // stream item is pending
                 Some(Poll::Pending) => {
                     return Poll::Pending;
                 }
-                // stack is empty and we are done
-                None => {
+                // no current stream or completed
+                Some(Poll::Ready((_, None))) | None => {
+                    // proceed to poll the next stream
+                }
+            }
+
+            // poll the next stream
+            println!("child stream futs: {:?}", this.child_streams_futs.len());
+            match this.child_streams_futs.poll_next_unpin(cx) {
+                Poll::Ready(Some((depth, stream))) => {
+                    println!(
+                        "child stream fut depth {} completed: {:?}",
+                        depth,
+                        stream.is_ok()
+                    );
+                    let stream = match stream {
+                        Ok(stream) => stream.boxed(),
+                        Err(err) => futures::stream::iter([Err(err)]).boxed(),
+                    };
+                    this.current_stream.set(Some((depth, Box::pin(stream))));
+                }
+                // when there are no more child stream futures,
+                // we are done
+                Poll::Ready(None) => {
+                    println!("no more child streams");
                     return Poll::Ready(None);
+                }
+                // still waiting for the next stream
+                Poll::Pending => {
+                    println!("child stream is still pending");
+                    return Poll::Pending;
                 }
             }
         }
+
+        // we first poll for the newest child stream in Bfs
+
+        // at this point, the last element in the stack is the current level
+        // loop {
+        //     let next_item = match this.stack.last_mut() {
+        //         Some((depth, current_stream)) => {
+        //             let next_item = current_stream.as_mut().poll_next(cx);
+        //             Some(next_item.map(|node| (depth, node)))
+        //         }
+        //         None => None,
+        //     };
+
+        //     println!("next item: {:?}", next_item);
+        //     match next_item {
+        //         // stream item is ready but failure success
+        //         Some(Poll::Ready((depth, Some(Err(err))))) => {
+        //             return Poll::Ready(Some(Err(err)));
+        //         }
+        //         // stream item is ready and success
+        //         Some(Poll::Ready((depth, Some(Ok(node))))) => {
+        //             if let Some(max_depth) = this.max_depth {
+        //                 if depth >= max_depth {
+        //                     return Poll::Ready(Some(Ok(node)));
+        //                 }
+        //             }
+
+        //             // add child stream future to be polled
+        //             let arc_node = Arc::new(node.clone());
+        //             let next_depth = *depth + 1;
+        //             let child_stream_fut = arc_node
+        //                 .children(next_depth)
+        //                 .map(move |stream| (next_depth, stream));
+        //             this.child_streams_futs
+        //                 .push_back(Box::pin(child_stream_fut));
+
+        //             return Poll::Ready(Some(Ok(node)));
+        //         }
+        //         // stream completed for this level completed
+        //         Some(Poll::Ready((depth, None))) => {
+        //             let _ = this.stack.pop();
+        //             println!("pop stack to size: {}", this.stack.len());
+        //             // try again in the next round
+        //             // returning Poll::Pending here is bad because the runtime can not know when to poll
+        //             // us again to make progress since we never passed the cx to poll of the next
+        //             // level stream
+        //         }
+        //         // stream item is pending
+        //         Some(Poll::Pending) => {
+        //             return Poll::Pending;
+        //         }
+        //         // stack is empty and we are done
+        //         None => {
+        //             return Poll::Ready(None);
+        //         }
+        //     }
+        // }
         unreachable!()
     }
 }
@@ -162,6 +212,7 @@ mod tests {
     use anyhow::Result;
     use futures::{Stream, StreamExt};
     use pretty_assertions::assert_eq;
+    use std::cmp::Ordering;
     use tokio::time::{sleep, Duration};
 
     macro_rules! depths {
@@ -193,7 +244,8 @@ mod tests {
                         })
                         .buffer_unordered(8);
                     let depths = depths!(iter);
-                    assert_eq!(depths, expected_depths);
+                    assert!(test::is_monotonic(&depths, Ordering::Greater));
+                    test::assert_eq_vec!(depths, expected_depths);
                     Ok(())
                 }
             }
@@ -213,6 +265,7 @@ mod tests {
                         })
                         .buffered(8);
                     let depths = depths!(iter);
+                    assert!(test::is_monotonic(&depths, Ordering::Greater));
                     assert_eq!(depths, expected_depths);
                     Ok(())
                 }
@@ -229,10 +282,11 @@ mod tests {
     }
 
     test_depths!(
-        dfs:
+        bfs:
         (
-            Dfs::<test::Node>::new(0, 3, true),
-            [1, 2, 3, 3, 2, 3, 3, 1, 2, 3, 3, 2, 3, 3]
+            Bfs::<test::Node>::new(0, 3, true),
+            // [1, 1, 2, 2, 2, 2]
+            [1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3]
         ),
         test_depths_ordered,
         test_depths_unordered,

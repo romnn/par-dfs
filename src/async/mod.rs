@@ -1,8 +1,8 @@
-// pub mod bfs;
+pub mod bfs;
 pub mod dfs;
 // pub mod queue;
 
-// pub use bfs::*;
+pub use bfs::*;
 pub use dfs::*;
 
 use async_trait::async_trait;
@@ -29,7 +29,6 @@ where
 
     async fn children(
         self: Arc<Self>,
-        // &self,
         depth: usize,
     ) -> Result<NodeStream<Self, Self::Error>, Self::Error>;
 }

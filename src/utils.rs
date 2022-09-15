@@ -3,8 +3,8 @@ pub mod test {
     use std::cmp::{Ord, Ordering};
     use std::iter::IntoIterator;
 
-    #[cfg(feature = "rayon")]
-    pub mod par {
+    #[allow(dead_code)]
+    pub mod macros {
         macro_rules! assert_eq_vec {
             ($left:expr, $right:expr $(,)?) => {{
                 let mut left = $left.clone();
@@ -25,8 +25,7 @@ pub mod test {
         pub(crate) use assert_eq_vec;
     }
 
-    #[cfg(feature = "rayon")]
-    pub use par::*;
+    pub use macros::*;
 
     #[derive(thiserror::Error, Hash, PartialEq, Eq, Clone, Debug)]
     #[error("error")]
@@ -41,6 +40,7 @@ pub mod test {
         }
     }
 
+    #[cfg(feature = "async")]
     pub mod r#async {
         use crate::r#async::{Node, NodeStream};
         use async_trait::async_trait;
@@ -54,7 +54,6 @@ pub mod test {
 
             async fn children(
                 self: Arc<Self>,
-                // &self,
                 depth: usize,
             ) -> Result<NodeStream<Self, Self::Error>, Self::Error> {
                 // we want to test with multiple await points
@@ -72,6 +71,7 @@ pub mod test {
         }
     }
 
+    #[cfg(feature = "sync")]
     pub mod sync {
         use crate::sync::{ExtendQueue, FastNode, Node, NodeIter};
 
