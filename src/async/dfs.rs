@@ -3,18 +3,10 @@ use super::{NewNodesFut, Node, NodeStream, Stack, StreamQueue};
 use futures::stream::{FuturesOrdered, Stream, StreamExt};
 use futures::{Future, FutureExt};
 use pin_project::pin_project;
+use std::collections::HashSet;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
-
-pub trait NodeFut<N, E>:
-    Future<Output = Result<NodeStream<N, E>, E>> + Unpin + Send + 'static
-{
-}
-
-struct IsUnpin<T>(T)
-where
-    T: Unpin;
 
 #[derive(Default)]
 #[pin_project]
@@ -22,10 +14,11 @@ pub struct Dfs<N>
 where
     N: Node,
 {
-    // #[pin]
     stack: Stack<N, N::Error>,
     child_streams_futs: StreamQueue<N, N::Error>,
     max_depth: Option<usize>,
+    allow_circles: bool,
+    visited: HashSet<N>,
 }
 
 impl<N> Dfs<N>
@@ -43,7 +36,7 @@ where
         let max_depth = max_depth.into();
         let mut child_streams_futs: StreamQueue<N, N::Error> = FuturesOrdered::new();
         let depth = 1;
-        let child_stream_fut = Arc::new(root)
+        let child_stream_fut = Arc::new(root.clone())
             .children(depth)
             .map(move |stream| (depth, stream));
         child_streams_futs.push_front(Box::pin(child_stream_fut));
@@ -52,6 +45,8 @@ where
             stack: vec![],
             child_streams_futs,
             max_depth,
+            visited: HashSet::from_iter([root]),
+            allow_circles,
         }
     }
 }
@@ -115,22 +110,28 @@ where
                 }
                 // stream item is ready and success
                 Some(Poll::Ready((depth, Some(Ok(node))))) => {
-                    if let Some(max_depth) = this.max_depth {
-                        if depth >= max_depth {
-                            return Poll::Ready(Some(Ok(node)));
+                    if *this.allow_circles || !this.visited.contains(&node) {
+                        if !*this.allow_circles {
+                            this.visited.insert(node.clone());
                         }
+
+                        if let Some(max_depth) = this.max_depth {
+                            if depth >= max_depth {
+                                return Poll::Ready(Some(Ok(node)));
+                            }
+                        }
+
+                        // add child stream future to be polled
+                        let arc_node = Arc::new(node.clone());
+                        let next_depth = *depth + 1;
+                        let child_stream_fut = arc_node
+                            .children(next_depth)
+                            .map(move |stream| (next_depth, stream));
+                        this.child_streams_futs
+                            .push_front(Box::pin(child_stream_fut));
+
+                        return Poll::Ready(Some(Ok(node)));
                     }
-
-                    // add child stream future to be polled
-                    let arc_node = Arc::new(node.clone());
-                    let next_depth = *depth + 1;
-                    let child_stream_fut = arc_node
-                        .children(next_depth)
-                        .map(move |stream| (next_depth, stream));
-                    this.child_streams_futs
-                        .push_front(Box::pin(child_stream_fut));
-
-                    return Poll::Ready(Some(Ok(node)));
                 }
                 // stream completed for this level completed
                 Some(Poll::Ready((depth, None))) => {
@@ -233,6 +234,16 @@ mod tests {
         (
             Dfs::<test::Node>::new(0, 3, true),
             [1, 2, 3, 3, 2, 3, 3, 1, 2, 3, 3, 2, 3, 3]
+        ),
+        test_depths_ordered,
+        test_depths_unordered,
+    );
+
+    test_depths!(
+        dfs_no_circles:
+        (
+            Dfs::<test::Node>::new(0, 3, false),
+            [1, 2, 3]
         ),
         test_depths_ordered,
         test_depths_unordered,

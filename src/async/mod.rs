@@ -1,6 +1,5 @@
 pub mod bfs;
 pub mod dfs;
-// pub mod queue;
 
 pub use bfs::*;
 pub use dfs::*;
@@ -8,6 +7,7 @@ pub use dfs::*;
 use async_trait::async_trait;
 use futures::stream::{FuturesOrdered, Stream, StreamExt};
 use futures::Future;
+use std::hash::Hash;
 use std::pin::Pin;
 use std::sync::Arc;
 
@@ -23,9 +23,9 @@ type StreamQueue<N, E> = FuturesOrdered<NewNodesFut<N, E>>;
 #[async_trait]
 pub trait Node
 where
-    Self: Sized + std::fmt::Debug,
+    Self: Sized + Hash + Eq + std::fmt::Debug,
 {
-    type Error: std::fmt::Debug;
+    type Error: Hash + Eq + std::fmt::Debug;
 
     async fn children(
         self: Arc<Self>,
