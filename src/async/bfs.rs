@@ -1,7 +1,7 @@
-use super::{NewNodesFut, Node, NodeStream, Stack, StreamQueue};
+use super::{Node, NodeStream, StreamQueue};
 
 use futures::stream::{FuturesOrdered, Stream, StreamExt};
-use futures::{Future, FutureExt};
+use futures::FutureExt;
 use pin_project::pin_project;
 use std::collections::HashSet;
 use std::pin::Pin;
@@ -59,7 +59,7 @@ where
 {
     type Item = Result<N, N::Error>;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
 
         println!("------- poll");
@@ -78,7 +78,7 @@ where
             println!("next item: {:?}", next_item);
             match next_item {
                 // stream item is ready but failure success
-                Some(Poll::Ready((depth, Some(Err(err))))) => {
+                Some(Poll::Ready((_, Some(Err(err))))) => {
                     return Poll::Ready(Some(Err(err)));
                 }
                 // stream item is ready and success
@@ -144,7 +144,6 @@ where
                 }
             }
         }
-        unreachable!()
     }
 }
 
@@ -153,7 +152,7 @@ mod tests {
     use super::*;
     use crate::utils::test;
     use anyhow::Result;
-    use futures::{Stream, StreamExt};
+    use futures::StreamExt;
     use pretty_assertions::assert_eq;
     use std::cmp::Ordering;
     use tokio::time::{sleep, Duration};

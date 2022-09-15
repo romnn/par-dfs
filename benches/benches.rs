@@ -1,8 +1,9 @@
-use criterion::{
-    black_box, criterion_group, criterion_main, BenchmarkGroup, Criterion, SamplingMode,
-};
-use par_dfs::sync::*;
-use std::collections::{HashSet, VecDeque};
+#[cfg(feature = "async")]
+use par_dfs::r#async;
+#[cfg(feature = "sync")]
+use par_dfs::sync;
+
+use criterion::{black_box, criterion_group, criterion_main};
 use std::convert::Infallible;
 use std::iter::Iterator;
 
@@ -12,12 +13,12 @@ use std::iter::Iterator;
 /// [Collatz]: https://en.wikipedia.org/wiki/Collatz_conjecture
 /// [graph]: https://en.wikipedia.org/wiki/File:Collatz_orbits_of_the_all_integers_up_to_1000.svg
 
-type Queue = VecDeque<(usize, Result<u32, Infallible>)>;
-
 pub mod custom_dfs {
-    use super::*;
-    use std::collections::VecDeque;
+    use std::collections::{HashSet, VecDeque};
     use std::convert::Infallible;
+    use std::iter::Iterator;
+
+    type Queue = VecDeque<(usize, Result<u32, Infallible>)>;
 
     #[derive(Clone, Debug)]
     pub struct CollatzDfs {
@@ -41,7 +42,7 @@ pub mod custom_dfs {
     impl Iterator for CollatzDfs {
         type Item = Result<u32, Infallible>;
 
-        #[inline(always)]
+        #[inline]
         fn next(&mut self) -> Option<Self::Item> {
             match self.queue.pop_back() {
                 Some((depth, Ok(n))) => {
@@ -73,7 +74,7 @@ pub mod custom_dfs {
         }
     }
 
-    #[cfg(feature = "rayon")]
+    #[cfg(all(feature = "sync", feature = "rayon"))]
     impl par_dfs::sync::par::SplittableIterator for CollatzDfs {
         fn split(&mut self) -> Option<Self> {
             let len = self.queue.len();
@@ -101,14 +102,14 @@ pub use custom_dfs::*;
 pub struct CollatzNode(pub u32);
 
 impl From<u32> for CollatzNode {
-    #[inline(always)]
+    #[inline]
     fn from(n: u32) -> Self {
         Self(n)
     }
 }
 
 impl CollatzNode {
-    #[inline(always)]
+    #[inline]
     pub fn collatz_children(&self) -> impl Iterator<Item = Result<CollatzNode, Infallible>> {
         let n = self.0;
         let mut children = vec![];
@@ -127,60 +128,62 @@ impl CollatzNode {
     }
 }
 
-pub mod sync {
-    use super::*;
-    use std::convert::Infallible;
+// pub mod sync {
+//     use super::*;
+//     use std::convert::Infallible;
 
-    impl FastNode for super::CollatzNode {
-        type Error = Infallible;
+#[cfg(feature = "sync")]
+impl sync::FastNode for CollatzNode {
+    type Error = Infallible;
 
-        #[inline(always)]
-        fn add_children<E>(&self, depth: usize, queue: &mut E) -> Result<(), Self::Error>
-        where
-            E: ExtendQueue<Self, Self::Error>,
-        {
-            let n = self.0;
+    #[inline]
+    fn add_children<E>(&self, depth: usize, queue: &mut E) -> Result<(), Self::Error>
+    where
+        E: sync::ExtendQueue<Self, Self::Error>,
+    {
+        let n = self.0;
 
-            // n can be reached by dividing by two
-            // as long as it doesn't overflow
-            if let Some(even) = n.checked_mul(2) {
-                queue.add(depth, Ok(Self(even)));
-            }
-
-            // n can be reached by 3x + 1 iff (n - 1) / 3 is an odd integer
-            if n > 4 && n % 6 == 4 {
-                queue.add(depth, Ok(Self((n - 1) / 3)));
-            }
-            Ok(())
+        // n can be reached by dividing by two
+        // as long as it doesn't overflow
+        if let Some(even) = n.checked_mul(2) {
+            queue.add(depth, Ok(Self(even)));
         }
-    }
 
-    impl Node for super::CollatzNode {
-        type Error = Infallible;
-
-        #[inline(always)]
-        fn children(&self, _depth: usize) -> NodeIter<Self, Self::Error> {
-            Ok(Box::new(self.collatz_children()))
+        // n can be reached by 3x + 1 iff (n - 1) / 3 is an odd integer
+        if n > 4 && n % 6 == 4 {
+            queue.add(depth, Ok(Self((n - 1) / 3)));
         }
+        Ok(())
     }
 }
+
+#[cfg(feature = "sync")]
+impl sync::Node for CollatzNode {
+    type Error = Infallible;
+
+    #[inline]
+    fn children(&self, _depth: usize) -> sync::NodeIter<Self, Self::Error> {
+        Ok(Box::new(self.collatz_children()))
+    }
+}
+// }
 
 const START: u32 = 1;
 const LIMIT: Option<usize> = Some(1_00);
 const CIRCLES: bool = true;
 
-fn configure_group<M>(group: &mut BenchmarkGroup<M>)
+fn configure_group<M>(group: &mut criterion::BenchmarkGroup<M>)
 where
     M: criterion::measurement::Measurement,
 {
     group.sample_size(10);
-    group.sampling_mode(SamplingMode::Flat);
+    group.sampling_mode(criterion::SamplingMode::Flat);
 }
 
 macro_rules! bench_collatz_sync {
     ($name:ident: $group:literal, $iter:expr) => {
         /// Benchmarks for [Collatz] $name.
-        fn $name(c: &mut Criterion) {
+        fn $name(c: &mut criterion::Criterion) {
             let mut group = c.benchmark_group($group);
             configure_group(&mut group);
             let iter = $iter;
@@ -219,27 +222,32 @@ macro_rules! bench_collatz_sync {
 
 bench_collatz_sync!(
     bench_collatz_sync_fast_bfs:
-    "collatz/sync/fastbfs", FastBfs::<CollatzNode>::new(black_box(START), LIMIT, CIRCLES)
+    "collatz/sync/fastbfs",
+    sync::FastBfs::<CollatzNode>::new(black_box(START), LIMIT, CIRCLES)
 );
 
 bench_collatz_sync!(
     bench_collatz_sync_bfs:
-    "collatz/sync/bfs", Bfs::<CollatzNode>::new(black_box(START), LIMIT, CIRCLES)
+    "collatz/sync/bfs",
+    sync::Bfs::<CollatzNode>::new(black_box(START), LIMIT, CIRCLES)
 );
 
 bench_collatz_sync!(
     bench_collatz_sync_fast_dfs:
-    "collatz/sync/fastdfs", FastDfs::<CollatzNode>::new(black_box(START), LIMIT, CIRCLES)
+    "collatz/sync/fastdfs",
+    sync::FastDfs::<CollatzNode>::new(black_box(START), LIMIT, CIRCLES)
 );
 
 bench_collatz_sync!(
     bench_collatz_sync_dfs:
-    "collatz/sync/dfs", Dfs::<CollatzNode>::new(black_box(START), LIMIT, CIRCLES)
+    "collatz/sync/dfs",
+    sync::Dfs::<CollatzNode>::new(black_box(START), LIMIT, CIRCLES)
 );
 
 bench_collatz_sync!(
     bench_collatz_sync_custom_dfs:
-    "collatz/sync/customdfs", CollatzDfs::new(black_box(START), LIMIT, CIRCLES)
+    "collatz/sync/customdfs",
+    CollatzDfs::new(black_box(START), LIMIT, CIRCLES)
 );
 
 criterion_group!(

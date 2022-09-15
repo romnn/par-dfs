@@ -12,22 +12,18 @@ impl<I, E> super::Queue<I, E> for Queue<I, E>
 where
     I: Clone,
 {
-    #[inline(always)]
     fn len(&self) -> usize {
         self.inner.len()
     }
 
-    #[inline(always)]
     fn pop_back(&mut self) -> Option<(usize, Result<I, E>)> {
         self.inner.pop_back()
     }
 
-    #[inline(always)]
     fn pop_front(&mut self) -> Option<(usize, Result<I, E>)> {
         self.inner.pop_front()
     }
 
-    #[inline(always)]
     fn split_off(&mut self, at: usize) -> Self {
         let split = self.inner.split_off(at);
         // cannot find circles with parallel iterator
@@ -42,7 +38,7 @@ where
 }
 
 impl<I, E> Queue<I, E> {
-    #[inline(always)]
+    #[inline]
     #[must_use]
     pub fn new(allow_circles: bool) -> Self {
         Self {
@@ -54,7 +50,7 @@ impl<I, E> Queue<I, E> {
 }
 
 impl<I, E> Default for Queue<I, E> {
-    #[inline(always)]
+    #[inline]
     fn default() -> Self {
         Self::new(false)
     }
@@ -65,7 +61,7 @@ where
     I: Hash + Eq + Clone,
     E: Hash + Eq + Clone,
 {
-    #[inline(always)]
+    #[inline]
     fn add(&mut self, depth: usize, item: Result<I, E>) {
         if self.allow_circles {
             self.inner.push_back((depth, item));
@@ -82,7 +78,7 @@ where
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn add_all<Iter>(&mut self, depth: usize, iter: Iter)
     where
         Iter: IntoIterator<Item = Result<I, E>>,

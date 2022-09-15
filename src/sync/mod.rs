@@ -29,7 +29,8 @@ pub trait Queue<I, E> {
 
     fn pop_front(&mut self) -> Option<(usize, Result<I, E>)>;
 
-    #[must_use] fn split_off(&mut self, at: usize) -> Self;
+    #[must_use]
+    fn split_off(&mut self, at: usize) -> Self;
 }
 
 pub type NodeIter<I, E> = Result<Box<dyn Iterator<Item = Result<I, E>>>, E>;
@@ -40,6 +41,11 @@ where
 {
     type Error: Hash + Eq + Clone + std::fmt::Debug;
 
+    /// Iterator of the node's children
+    ///
+    /// # Errors
+    ///
+    /// Should return `Self::Error` if the iterator cannot be crated.
     fn children(&self, depth: usize) -> NodeIter<Self, Self::Error>;
 }
 
@@ -49,6 +55,11 @@ where
 {
     type Error: Hash + Eq + Clone + std::fmt::Debug;
 
+    /// Callback for adding children nodes to the queue
+    ///
+    /// # Errors
+    ///
+    /// Should return `Self::Error` if the children could not be computed.
     fn add_children<E>(&self, depth: usize, queue: &mut E) -> Result<(), Self::Error>
     where
         E: ExtendQueue<Self, Self::Error>;

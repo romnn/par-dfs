@@ -9,7 +9,7 @@ pub trait SplittableIterator: Iterator + Sized {
     fn split(&mut self) -> Option<Self>;
 }
 
-/// Converts a SplittableIterator into a ParallelIterator.
+/// Converts a `SplittableIterator` into a `rayon::iter::ParallelIterator`.
 pub trait IntoParallelIterator: Sized {
     /// Parallelize this.
     fn into_par_iter(self) -> ParallelSplittableIterator<Self>;
@@ -25,7 +25,7 @@ where
     }
 }
 
-/// An adapter from a SplittableIterator to a ParallelIterator.
+/// An adapter from a `SplittableIterator` to a `rayon::iter::ParallelIterator`.
 pub struct ParallelSplittableIterator<Iter> {
     /// The underlying SplittableIterator.
     iter: Iter,
@@ -34,7 +34,7 @@ pub struct ParallelSplittableIterator<Iter> {
 }
 
 impl<Iter: SplittableIterator> ParallelSplittableIterator<Iter> {
-    /// Create a new SplittedIterator adapter.
+    /// Create a new `SplittedIterator` adapter.
     pub fn new(iter: Iter) -> Self {
         Self {
             iter,
@@ -124,6 +124,7 @@ macro_rules! parallel_iterator {
             N: $node,
         {
             fn split(&mut self) -> Option<Self> {
+                use $crate::sync::Queue;
                 let len = self.queue.len();
                 if len >= 2 {
                     let split = self.queue.split_off(len / 2);

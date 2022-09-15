@@ -128,8 +128,8 @@ where
 
 #[cfg(feature = "rayon")]
 pub mod par {
-    use crate::sync::par::*;
-    use crate::sync::*;
+    use crate::sync::par::parallel_iterator;
+    use crate::sync::{Dfs, FastDfs, FastNode, Node};
 
     parallel_iterator!(Dfs<Node>);
     parallel_iterator!(FastDfs<FastNode>);

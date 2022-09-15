@@ -4,28 +4,24 @@ pub mod test {
     use std::iter::IntoIterator;
 
     #[allow(dead_code)]
-    pub mod macros {
-        macro_rules! assert_eq_vec {
-            ($left:expr, $right:expr $(,)?) => {{
-                let mut left = $left.clone();
-                let mut right = $right.clone();
-                left.sort();
-                right.sort();
-                assert_eq!(left, right);
-            }};
-            ($left:expr, $right:expr, $($arg:tt)+) => {{
-                let mut left = $left.clone();
-                let mut right = $right.clone();
-                left.sort();
-                right.sort();
-                assert_eq!(left, right, $($arg)+);
-            }};
-        }
-
-        pub(crate) use assert_eq_vec;
+    macro_rules! assert_eq_vec {
+        ($left:expr, $right:expr $(,)?) => {{
+            let mut left = $left.clone();
+            let mut right = $right.clone();
+            left.sort_unstable();
+            right.sort_unstable();
+            assert_eq!(left, right);
+        }};
+        ($left:expr, $right:expr, $($arg:tt)+) => {{
+            let mut left = $left.clone();
+            let mut right = $right.clone();
+            left.sort_unstable();
+            right.sort_unstable();
+            assert_eq!(left, right, $($arg)+);
+        }};
     }
 
-    pub use macros::*;
+    pub(crate) use assert_eq_vec;
 
     #[derive(thiserror::Error, Hash, PartialEq, Eq, Clone, Debug)]
     #[error("error")]

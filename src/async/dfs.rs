@@ -1,7 +1,7 @@
-use super::{NewNodesFut, Node, NodeStream, Stack, StreamQueue};
+use super::{Node, Stack, StreamQueue};
 
 use futures::stream::{FuturesOrdered, Stream, StreamExt};
-use futures::{Future, FutureExt};
+use futures::FutureExt;
 use pin_project::pin_project;
 use std::collections::HashSet;
 use std::pin::Pin;
@@ -58,8 +58,8 @@ where
 {
     type Item = Result<N, N::Error>;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let mut this = self.project();
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.project();
 
         println!("------- poll");
         println!("stack size: {:?}", this.stack.len());
@@ -105,7 +105,7 @@ where
             println!("next item: {:?}", next_item);
             match next_item {
                 // stream item is ready but failure success
-                Some(Poll::Ready((depth, Some(Err(err))))) => {
+                Some(Poll::Ready((_, Some(Err(err))))) => {
                     return Poll::Ready(Some(Err(err)));
                 }
                 // stream item is ready and success
@@ -134,8 +134,8 @@ where
                     }
                 }
                 // stream completed for this level completed
-                Some(Poll::Ready((depth, None))) => {
-                    let _ = this.stack.pop();
+                Some(Poll::Ready((_, None))) => {
+                    this.stack.pop();
                     println!("pop stack to size: {}", this.stack.len());
                     // try again in the next round
                     // returning Poll::Pending here is bad because the runtime can not know when to poll
@@ -152,7 +152,6 @@ where
                 }
             }
         }
-        unreachable!()
     }
 }
 
@@ -161,7 +160,7 @@ mod tests {
     use super::*;
     use crate::utils::test;
     use anyhow::Result;
-    use futures::{Stream, StreamExt};
+    use futures::StreamExt;
     use pretty_assertions::assert_eq;
     use tokio::time::{sleep, Duration};
 

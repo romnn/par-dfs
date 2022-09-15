@@ -42,7 +42,7 @@ where
 {
     type Item = Result<N, N::Error>;
 
-    #[inline(always)]
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         match self.queue.pop_front() {
             // next node failed
@@ -82,7 +82,7 @@ impl<N> FastBfs<N>
 where
     N: FastNode,
 {
-    #[inline(always)]
+    #[inline]
     pub fn new<R, D>(root: R, max_depth: D, allow_circles: bool) -> Self
     where
         R: Into<N>,
@@ -104,7 +104,7 @@ where
 {
     type Item = Result<N, N::Error>;
 
-    #[inline(always)]
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         match self.queue.pop_front() {
             // next node failed
@@ -129,8 +129,8 @@ where
 
 #[cfg(feature = "rayon")]
 pub mod par {
-    use crate::sync::par::*;
-    use crate::sync::*;
+    use crate::sync::par::parallel_iterator;
+    use crate::sync::{Bfs, FastBfs, FastNode, Node};
 
     parallel_iterator!(Bfs<Node>);
     parallel_iterator!(FastBfs<FastNode>);

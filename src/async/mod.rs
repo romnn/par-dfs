@@ -5,7 +5,7 @@ pub use bfs::*;
 pub use dfs::*;
 
 use async_trait::async_trait;
-use futures::stream::{FuturesOrdered, Stream, StreamExt};
+use futures::stream::{FuturesOrdered, Stream};
 use futures::Future;
 use std::hash::Hash;
 use std::pin::Pin;
