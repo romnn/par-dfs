@@ -12,18 +12,22 @@ impl<I, E> super::Queue<I, E> for Queue<I, E>
 where
     I: Clone,
 {
+    #[inline]
     fn len(&self) -> usize {
         self.inner.len()
     }
 
+    #[inline]
     fn pop_back(&mut self) -> Option<(usize, Result<I, E>)> {
         self.inner.pop_back()
     }
 
+    #[inline]
     fn pop_front(&mut self) -> Option<(usize, Result<I, E>)> {
         self.inner.pop_front()
     }
 
+    #[inline]
     fn split_off(&mut self, at: usize) -> Self {
         let split = self.inner.split_off(at);
         // cannot find circles with parallel iterator
