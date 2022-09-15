@@ -54,6 +54,7 @@ pub mod test {
 
             async fn children(
                 self: Arc<Self>,
+                // &self,
                 depth: usize,
             ) -> Result<NodeStream<Self, Self::Error>, Self::Error> {
                 // we want to test with multiple await points
