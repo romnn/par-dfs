@@ -12,6 +12,53 @@ use std::task::{Context, Poll};
 #[pin_project]
 /// Asynchronous depth-first stream for types implementing the [`Node`] trait.
 ///
+/// ### Example
+/// ```
+/// use futures::StreamExt;
+/// use par_dfs::r#async::{Node, Dfs, NodeStream};
+///
+/// #[derive(PartialEq, Eq, Hash, Clone, Debug)]
+/// struct WordNode(String);
+///
+/// #[async_trait::async_trait]
+/// impl Node for WordNode {
+///     type Error = std::convert::Infallible;
+///
+///     async fn children(
+///         self: std::sync::Arc<Self>,
+///         _depth: usize
+///     ) -> Result<NodeStream<Self, Self::Error>, Self::Error> {
+///         let len = self.0.len();
+///         let nodes: Vec<String> = if len < 2 {
+///             vec![]
+///         } else {
+///             let mid = len/2;
+///             vec![self.0[..mid].into(), self.0[mid..].into()]
+///         };
+///         let nodes = nodes.into_iter()
+///             .map(Self)
+///             .map(Result::Ok);
+///         let stream = futures::stream::iter(nodes);
+///         Ok(Box::pin(stream.boxed()))
+///     }
+/// }
+///
+/// let result = tokio_test::block_on(async {
+///     let root = WordNode("Hello World".into());
+///     let dfs = Dfs::<WordNode>::new(root, None, true);
+///     let output = dfs
+///         .collect::<Vec<_>>()
+///         .await
+///         .into_iter()
+///         .collect::<Result<Vec<_>, _>>()
+///         .unwrap();
+///     output.into_iter()
+///         .filter_map(|s| if s.0.len() == 1 { Some(s.0) } else { None })
+///         .collect::<String>()
+/// });
+/// assert_eq!(result, "Hello World");
+/// ```
+///
 /// [`Node`]: trait@crate::async::Node
 pub struct Dfs<N>
 where

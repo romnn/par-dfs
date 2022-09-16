@@ -6,6 +6,43 @@ use std::iter::Iterator;
 #[derive(Debug, Clone)]
 /// Synchronous breadth-first iterator for types implementing the [`Node`] trait.
 ///
+/// ### Example
+/// ```
+/// use par_dfs::sync::{Node, Bfs, NodeIter};
+///
+/// #[derive(PartialEq, Eq, Hash, Clone, Debug)]
+/// struct WordNode(String);
+///
+/// impl Node for WordNode {
+///     type Error = std::convert::Infallible;
+///
+///     fn children(&self, _depth: usize) -> NodeIter<Self, Self::Error> {
+///         let len = self.0.len();
+///         let nodes: Vec<String> = if len > 1 {
+///             let mid = len/2;
+///             vec![self.0[..mid].into(), self.0[mid..].into()]
+///         } else {
+///             assert!(len == 1);
+///             vec![self.0.clone()]
+///         };
+///         let nodes = nodes.into_iter()
+///             .map(Self)
+///             .map(Result::Ok);
+///         Ok(Box::new(nodes))
+///     }
+/// }
+///
+/// let word = "Hello World";
+/// let root = WordNode(word.into());
+/// let limit = (word.len() as f32).log2().ceil() as usize;
+///
+/// let bfs = Bfs::<WordNode>::new(root, limit, true);
+/// let output = bfs.collect::<Result<Vec<_>, _>>().unwrap();
+/// let result = output[output.len()-word.len()..]
+///     .into_iter().map(|s| s.0.as_str()).collect::<String>();
+/// assert_eq!(result, "Hello World");
+/// ```
+///
 /// [`Node`]: trait@crate::sync::Node
 pub struct Bfs<N>
 where
@@ -81,6 +118,46 @@ where
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone)]
 /// Synchronous, fast breadth-first iterator for types implementing the [`FastNode`] trait.
+///
+/// ### Example
+/// ```
+/// use par_dfs::sync::{FastNode, FastBfs, ExtendQueue, NodeIter};
+///
+/// #[derive(PartialEq, Eq, Hash, Clone, Debug)]
+/// struct WordNode(String);
+///
+/// impl FastNode for WordNode {
+///     type Error = std::convert::Infallible;
+///
+///     fn add_children<E>(
+///         &self, _depth: usize, queue: &mut E
+///     ) -> Result<(), Self::Error>
+///     where
+///         E: ExtendQueue<Self, Self::Error>,
+///     {
+///         let len = self.0.len();
+///         if len > 1 {
+///             let mid = len/2;
+///             queue.add(Ok(Self(self.0[..mid].into())));
+///             queue.add(Ok(Self(self.0[mid..].into())));
+///         } else {
+///             assert!(len == 1);
+///             queue.add(Ok(Self(self.0.clone())));
+///         }
+///         Ok(())
+///     }
+/// }
+///
+/// let word = "Hello World";
+/// let root = WordNode(word.into());
+/// let limit = (word.len() as f32).log2().ceil() as usize;
+///
+/// let bfs = FastBfs::<WordNode>::new(root, limit, true);
+/// let output = bfs.collect::<Result<Vec<_>, _>>().unwrap();
+/// let result = output[output.len()-word.len()..]
+///     .into_iter().map(|s| s.0.as_str()).collect::<String>();
+/// assert_eq!(result, "Hello World");
+/// ```
 ///
 /// [`FastNode`]: trait@crate::sync::FastNode
 pub struct FastBfs<N>

@@ -13,6 +13,55 @@ use std::task::{Context, Poll};
 #[pin_project]
 /// Asynchronous breadth-first stream for types implementing the [`Node`] trait.
 ///
+/// ### Example
+/// ```
+/// use futures::StreamExt;
+/// use par_dfs::r#async::{Node, Bfs, NodeStream};
+///
+/// #[derive(PartialEq, Eq, Hash, Clone, Debug)]
+/// struct WordNode(String);
+///
+/// #[async_trait::async_trait]
+/// impl Node for WordNode {
+///     type Error = std::convert::Infallible;
+///
+///     async fn children(
+///         self: std::sync::Arc<Self>,
+///         _depth: usize
+///     ) -> Result<NodeStream<Self, Self::Error>, Self::Error> {
+///         let len = self.0.len();
+///         let nodes: Vec<String> = if len > 1 {
+///             let mid = len/2;
+///             vec![self.0[..mid].into(), self.0[mid..].into()]
+///         } else {
+///             assert!(len == 1);
+///             vec![self.0.clone()]
+///         };
+///         let nodes = nodes.into_iter()
+///             .map(Self)
+///             .map(Result::Ok);
+///         let stream = futures::stream::iter(nodes);
+///         Ok(Box::pin(stream.boxed()))
+///     }
+/// }
+///
+/// let result = tokio_test::block_on(async {
+///     let word = "Hello World";
+///     let root = WordNode(word.into());
+///     let limit = (word.len() as f32).log2().ceil() as usize;
+///     let bfs = Bfs::<WordNode>::new(root, limit, true);
+///     let output = bfs
+///         .collect::<Vec<_>>()
+///         .await
+///         .into_iter()
+///         .collect::<Result<Vec<_>, _>>()
+///         .unwrap();
+///     output[output.len()-word.len()..]
+///         .into_iter().map(|s| s.0.as_str()).collect::<String>()
+/// });
+/// assert_eq!(result, "Hello World");
+/// ```
+///
 /// [`Node`]: trait@crate::async::Node
 pub struct Bfs<N>
 where

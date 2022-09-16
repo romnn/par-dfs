@@ -6,6 +6,40 @@ use std::iter::Iterator;
 #[derive(Debug, Clone)]
 /// Synchronous depth-first iterator for types implementing the [`Node`] trait.
 ///
+/// ### Example
+/// ```
+/// use par_dfs::sync::{Node, Dfs, NodeIter};
+///
+/// #[derive(PartialEq, Eq, Hash, Clone, Debug)]
+/// struct WordNode(String);
+///
+/// impl Node for WordNode {
+///     type Error = std::convert::Infallible;
+///
+///     fn children(&self, _depth: usize) -> NodeIter<Self, Self::Error> {
+///         let len = self.0.len();
+///         let nodes: Vec<String> = if len < 2 {
+///             vec![]
+///         } else {
+///             let mid = len/2;
+///             vec![self.0[mid..].into(), self.0[..mid].into()]
+///         };
+///         let nodes = nodes.into_iter()
+///             .map(Self)
+///             .map(Result::Ok);
+///         Ok(Box::new(nodes))
+///     }
+/// }
+///
+/// let root = WordNode("Hello World".into());
+/// let dfs = Dfs::<WordNode>::new(root, None, true);
+/// let output = dfs.collect::<Result<Vec<_>, _>>().unwrap();
+/// let result = output.into_iter()
+///     .filter_map(|s| if s.0.len() == 1 { Some(s.0) } else { None })
+///     .collect::<String>();
+/// assert_eq!(result, "Hello World");
+/// ```
+///
 /// [`Node`]: trait@crate::sync::Node
 pub struct Dfs<N>
 where
@@ -80,6 +114,41 @@ where
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone)]
 /// Synchronous, fast depth-first iterator for types implementing the [`FastNode`] trait.
+///
+/// ### Example
+/// ```
+/// use par_dfs::sync::{FastNode, FastDfs, ExtendQueue, NodeIter};
+///
+/// #[derive(PartialEq, Eq, Hash, Clone, Debug)]
+/// struct WordNode(String);
+///
+/// impl FastNode for WordNode {
+///     type Error = std::convert::Infallible;
+///
+///     fn add_children<E>(
+///         &self, _depth: usize, queue: &mut E
+///     ) -> Result<(), Self::Error>
+///     where
+///         E: ExtendQueue<Self, Self::Error>,
+///     {
+///         let len = self.0.len();
+///         if len > 1 {
+///             let mid = len/2;
+///             queue.add(Ok(Self(self.0[mid..].into())));
+///             queue.add(Ok(Self(self.0[..mid].into())));
+///         }
+///         Ok(())
+///     }
+/// }
+///
+/// let root = WordNode("Hello World".into());
+/// let dfs = FastDfs::<WordNode>::new(root, None, true);
+/// let output = dfs.collect::<Result<Vec<_>, _>>().unwrap();
+/// let result = output.into_iter()
+///     .filter_map(|s| if s.0.len() == 1 { Some(s.0) } else { None })
+///     .collect::<String>();
+/// assert_eq!(result, "Hello World");
+/// ```
 ///
 /// [`FastNode`]: trait@crate::sync::FastNode
 pub struct FastDfs<N>

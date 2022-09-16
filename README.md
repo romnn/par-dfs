@@ -27,7 +27,7 @@ cargo run --example sync_fs --features sync,rayon -- --path ./
 #### Documentation
 
 ```bash
-RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features --no-deps
+RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
 ```
 
 #### Linting
