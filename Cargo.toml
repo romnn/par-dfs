@@ -46,6 +46,9 @@ async = [
   "dep:async-trait",
 ]
 
+[package.metadata.docs.rs]
+all-features = true
+
 [dependencies]
 thiserror = "1"
 rayon = { version = "1", optional = true }

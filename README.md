@@ -1,6 +1,6 @@
 ## par-dfs
 
-Parallel, serial, and async dfs and bfs traversal in Rust.
+Parallel, serial, and async DFS and BFS traversal iterators in Rust.
 
 ```toml
 par-dfs = "0"
