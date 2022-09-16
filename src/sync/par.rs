@@ -1,20 +1,47 @@
+//! Support for parallel iteration using [`rayon`].
+//!
+//! To efficiently parallelize dynamically growing iterators,
+//! whose size is not known upfront, the [`ParallelSplittableIterator`] bridge
+//! can be used for any iterator that implements [`SplittableIterator`].
+//!
+//! [`ParallelSplittableIterator`]
+//! implements [`rayon::iter::ParallelIterator`].
+//!
+//! ### Acknowledgements
+//!
+//! This approach is taken from the amazing [blog post by tavianator](https://tavianator.com/2022/parallel_graph_search.html).
+//!
+//! [`rayon`]: mod@rayon
+//! [`ParallelSplittableIterator`]: struct@self::ParallelSplittableIterator
+//! [`SplittableIterator`]: trait@self::SplittableIterator
+//! [`rayon::iter::ParallelIterator`]: trait@rayon::iter::ParallelIterator
+
 use rayon::iter::plumbing::{Folder, Reducer, UnindexedConsumer};
 use rayon::iter::ParallelIterator;
 use rayon::{current_num_threads, join_context};
 use std::iter::Iterator;
 
-/// Parallel iteration with the `rayon::iter::ParallelIterator` based on the
-/// amazing [blog post by tavianator](https://tavianator.com/2022/parallel_graph_search.html)
-
 /// An iterator that can be split.
 pub trait SplittableIterator: Iterator + Sized {
     /// Split this iterator in two, if possible.
+    ///
+    /// Returns a newly allocated [`SplittableIterator`] of the second half,
+    /// or [`None`], if the iterator is too small to split.
+    ///
+    /// After the call, [`self`]
+    /// will be left containing the first half.
+    ///
+    /// [`None`]: type@std::option::Option::None
+    /// [`self`]: trait@self::SplittableIterator
     fn split(&mut self) -> Option<Self>;
 }
 
-/// Converts a `SplittableIterator` into a `rayon::iter::ParallelIterator`.
+/// Converts a [`SplittableIterator`] into a [`rayon::iter::ParallelIterator`].
 pub trait IntoParallelIterator: Sized {
-    /// Parallelize this.
+    /// Parallelizes this iterator.
+    ///
+    /// Returns a [`ParallelSplittableIterator`] bridge that implements
+    /// [`rayon::iter::ParallelIterator`].
     fn into_par_iter(self) -> ParallelSplittableIterator<Self>;
 }
 
@@ -28,16 +55,17 @@ where
     }
 }
 
-/// An adapter from a `SplittableIterator` to a `rayon::iter::ParallelIterator`.
+/// A bridge from a [`SplittableIterator`] to a [`rayon::iter::ParallelIterator`].
 pub struct ParallelSplittableIterator<Iter> {
-    /// The underlying SplittableIterator.
     iter: Iter,
-    /// The number of pieces we'd like to split into.
     splits: usize,
 }
 
-impl<Iter: SplittableIterator> ParallelSplittableIterator<Iter> {
-    /// Create a new `SplittedIterator` adapter.
+impl<Iter> ParallelSplittableIterator<Iter>
+where
+    Iter: SplittableIterator,
+{
+    /// Creates a new [`ParallelSplittableIterator`] bridge from a [`SplittableIterator`].
     pub fn new(iter: Iter) -> Self {
         Self {
             iter,
@@ -45,7 +73,7 @@ impl<Iter: SplittableIterator> ParallelSplittableIterator<Iter> {
         }
     }
 
-    /// Split the underlying iterator.
+    /// Split the underlying iterator in half.
     fn split(&mut self) -> Option<Self> {
         if self.splits == 0 {
             return None;
@@ -63,6 +91,9 @@ impl<Iter: SplittableIterator> ParallelSplittableIterator<Iter> {
         }
     }
 
+    /// Bridge to an [`UnindexedConsumer`].
+    ///
+    /// [`UnindexedConsumer`]: struct@rayon::iter::plumbing::UnindexedConsumer
     fn bridge<C>(&mut self, stolen: bool, consumer: C) -> C::Result
     where
         Iter: Send,

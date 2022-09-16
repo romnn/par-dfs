@@ -4,6 +4,9 @@ use std::iter::Iterator;
 
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone)]
+/// Synchronous depth-first iterator for types implementing the [`Node`] trait.
+///
+/// [`Node`]: trait@crate::sync::Node
 pub struct Dfs<N>
 where
     N: Node,
@@ -17,6 +20,13 @@ where
     N: Node,
 {
     #[inline]
+    /// Creates a new [`Dfs`] iterator.
+    ///
+    /// The DFS will be performed from the `root` node up to depth `max_depth`.
+    ///
+    /// When `allow_circles`, visited nodes will not be tracked, which can lead to cycles.
+    ///
+    /// [`Dfs`]: struct@crate::sync::Dfs
     pub fn new<R, D>(root: R, max_depth: D, allow_circles: bool) -> Self
     where
         R: Into<N>,
@@ -69,6 +79,9 @@ where
 
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone)]
+/// Synchronous, fast depth-first iterator for types implementing the [`FastNode`] trait.
+///
+/// [`FastNode`]: trait@crate::sync::FastNode
 pub struct FastDfs<N>
 where
     N: FastNode,
@@ -82,6 +95,13 @@ where
     N: FastNode,
 {
     #[inline]
+    /// Creates a new [`FastDfs`] iterator.
+    ///
+    /// The DFS will be performed from the `root` node up to depth `max_depth`.
+    ///
+    /// When `allow_circles`, visited nodes will not be tracked, which can lead to cycles.
+    ///
+    /// [`FastDfs`]: struct@crate::sync::FastDfs
     pub fn new<R, D>(root: R, max_depth: D, allow_circles: bool) -> Self
     where
         R: Into<N>,
@@ -127,7 +147,8 @@ where
 }
 
 #[cfg(feature = "rayon")]
-pub mod par {
+#[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
+mod par {
     use crate::sync::par::parallel_iterator;
     use crate::sync::{Dfs, FastDfs, FastNode, Node};
 

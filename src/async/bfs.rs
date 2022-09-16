@@ -11,6 +11,9 @@ use std::task::{Context, Poll};
 #[allow(clippy::module_name_repetitions)]
 #[derive(Default)]
 #[pin_project]
+/// Asynchronous breadth-first stream for types implementing the [`Node`] trait.
+///
+/// [`Node`]: trait@crate::async::Node
 pub struct Bfs<N>
 where
     N: Node,
@@ -29,6 +32,13 @@ where
     N::Error: Send + 'static,
 {
     #[inline]
+    /// Creates a new [`Bfs`] stream.
+    ///
+    /// The BFS will be performed from the `root` node up to depth `max_depth`.
+    ///
+    /// When `allow_circles`, visited nodes will not be tracked, which can lead to cycles.
+    ///
+    /// [`Bfs`]: struct@crate::async::Bfs
     pub fn new<R, D>(root: R, max_depth: D, allow_circles: bool) -> Self
     where
         R: Into<N>,

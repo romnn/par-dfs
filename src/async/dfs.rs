@@ -10,6 +10,9 @@ use std::task::{Context, Poll};
 
 #[derive(Default)]
 #[pin_project]
+/// Asynchronous depth-first stream for types implementing the [`Node`] trait.
+///
+/// [`Node`]: trait@crate::async::Node
 pub struct Dfs<N>
 where
     N: Node,
@@ -27,6 +30,13 @@ where
     N::Error: Send + 'static,
 {
     #[inline]
+    /// Creates a new [`Dfs`] stream.
+    ///
+    /// The DFS will be performed from the `root` node up to depth `max_depth`.
+    ///
+    /// When `allow_circles`, visited nodes will not be tracked, which can lead to cycles.
+    ///
+    /// [`Dfs`]: struct@crate::async::Dfs
     pub fn new<R, D>(root: R, max_depth: D, allow_circles: bool) -> Self
     where
         R: Into<N>,

@@ -3,7 +3,7 @@ pub mod dfs;
 #[cfg(feature = "rayon")]
 #[cfg_attr(docsrs, doc(cfg(feature = "rayon")))]
 pub mod par;
-pub mod queue;
+mod queue;
 
 pub use bfs::{Bfs, FastBfs};
 pub use dfs::{Dfs, FastDfs};
@@ -29,7 +29,8 @@ pub trait ExtendQueue<I, E> {
         Iter: IntoIterator<Item = Result<I, E>>;
 }
 
-/// A Queue that can be split and allows removing elements from the front or back.
+/// A Queue that can be split and allows removing elements
+/// from the front or back.
 pub(crate) trait Queue<I, E> {
     /// Returns the number of items in the queue
     fn len(&self) -> usize;
@@ -39,19 +40,24 @@ pub(crate) trait Queue<I, E> {
         self.len() == 0
     }
 
-    /// Pops the last item from the queue and returns it, or [`None`] if it is empty.
-    /// [`None`]: enum@std::option::Option::None
+    /// Pops the last item from the queue and returns it,
+    /// or [`None`] if it is empty.
+    ///
+    /// [`None`]: type@std::option::Option::None
     fn pop_back(&mut self) -> Option<(usize, Result<I, E>)>;
 
-    /// Pops the first item from the queue and returns it, or [`None`] if it is empty.
+    /// Pops the first item from the queue and returns it,
+    /// or [`None`] if it is empty.
     ///
-    /// [`None`]: enum@std::option::Option::None
+    /// [`None`]: type@std::option::Option::None
     fn pop_front(&mut self) -> Option<(usize, Result<I, E>)>;
 
     #[must_use]
     /// Splits the queue into two at the given index.
-    /// Returns a newly allocated queue containing the elements in the range `[at, len)`.
-    /// After the call, the original vector will be left containing the elements `[0, at)` with its previous capacity unchanged.
+    /// Returns a newly allocated queue containing the elements in
+    /// the range `[at, len)`.
+    /// After the call, the original vector will be left containing
+    /// the elements `[0, at)` with its previous capacity unchanged.
     ///
     /// # Panics
     ///   
@@ -65,7 +71,8 @@ pub(crate) trait Queue<I, E> {
 /// [`Node`]: trait@crate::sync::Node
 pub type NodeIter<I, E> = Result<Box<dyn Iterator<Item = Result<I, E>>>, E>;
 
-/// A node with produces an [`Iterator`] of children [`Node`]s for a given depth.
+/// A node with produces an [`Iterator`] of children [`Node`]s
+/// for a given depth.
 ///
 /// [`Iterator`]: trait@std::iter::Iterator
 /// [`Node`]: trait@crate::sync::Node
@@ -96,7 +103,8 @@ where
     /// The type of the error when adding children fails.
     type Error: std::fmt::Debug;
 
-    /// Callback for adding children [`Node`]s to a queue implementing [`ExtendQueue`].
+    /// Callback for adding children [`Node`]s to a queue
+    /// implementing [`ExtendQueue`].
     ///
     /// # Errors
     ///
