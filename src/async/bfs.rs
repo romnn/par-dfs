@@ -8,6 +8,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
+#[allow(clippy::module_name_repetitions)]
 #[derive(Default)]
 #[pin_project]
 pub struct Bfs<N>
@@ -62,8 +63,8 @@ where
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
 
-        println!("------- poll");
-        println!("has current stream: {:?}", this.current_stream.is_some());
+        // println!("------- poll");
+        // println!("has current stream: {:?}", this.current_stream.is_some());
 
         loop {
             let mut current_stream = this.current_stream.as_mut().as_pin_mut();
@@ -75,7 +76,7 @@ where
                 None => None,
             };
 
-            println!("next item: {:?}", next_item);
+            // println!("next item: {:?}", next_item);
             match next_item {
                 // stream item is ready but failure success
                 Some(Poll::Ready((_, Some(Err(err))))) => {
@@ -117,14 +118,14 @@ where
             }
 
             // poll the next stream
-            println!("child stream futs: {:?}", this.child_streams_futs.len());
+            // println!("child stream futs: {:?}", this.child_streams_futs.len());
             match this.child_streams_futs.poll_next_unpin(cx) {
                 Poll::Ready(Some((depth, stream))) => {
-                    println!(
-                        "child stream fut depth {} completed: {:?}",
-                        depth,
-                        stream.is_ok()
-                    );
+                    // println!(
+                    //     "child stream fut depth {} completed: {:?}",
+                    //     depth,
+                    //     stream.is_ok()
+                    // );
                     let stream = match stream {
                         Ok(stream) => stream.boxed(),
                         Err(err) => futures::stream::iter([Err(err)]).boxed(),
@@ -134,12 +135,12 @@ where
                 // when there are no more child stream futures,
                 // we are done
                 Poll::Ready(None) => {
-                    println!("no more child streams");
+                    // println!("no more child streams");
                     return Poll::Ready(None);
                 }
                 // still waiting for the next stream
                 Poll::Pending => {
-                    println!("child stream is still pending");
+                    // println!("child stream is still pending");
                     return Poll::Pending;
                 }
             }

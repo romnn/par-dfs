@@ -11,8 +11,6 @@ use std::hash::Hash;
 use std::pin::Pin;
 use std::sync::Arc;
 
-// pub type NodeStream<N, E> = Pin<Box<dyn Stream<Item = Result<N, E>> + Unpin + Send + 'static>>;
-// pub type NodeStream<'a, N, E> = Pin<Box<dyn Stream<Item = Result<N, E>> + Unpin + Send + 'a>>;
 pub type NodeStream<N, E> = Pin<Box<dyn Stream<Item = Result<N, E>> + Unpin + Send>>;
 
 type Stack<N, E> = Vec<(usize, NodeStream<N, E>)>;
@@ -29,10 +27,8 @@ where
 {
     type Error: std::fmt::Debug;
 
-    // async fn children<'a>(
     async fn children(
         self: Arc<Self>,
         depth: usize,
-        // ) -> Result<NodeStream<'a, Self, Self::Error>, Self::Error>;
     ) -> Result<NodeStream<Self, Self::Error>, Self::Error>;
 }

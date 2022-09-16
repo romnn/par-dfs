@@ -148,15 +148,25 @@ mod tests {
     #[cfg(feature = "rayon")]
     use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
+    macro_rules! depths {
+        ($iter:ident) => {{
+            $iter
+                // fail on first error
+                .collect::<Result<Vec<_>, _>>()?
+                .into_iter()
+                // get depth
+                .map(|item| item.0)
+                .collect::<Vec<_>>()
+        }};
+    }
+
     macro_rules! test_depths_serial {
         ($name:ident: $values:expr) => {
             paste::item! {
                 #[test]
                 fn [< test_ $name _ serial >] () -> Result<()> {
                     let (iter, expected_depths) = $values;
-                    let output = iter.collect::<Result<Vec<_>, _>>()?;
-                    let depths: Vec<_> = output.into_iter()
-                        .map(|item| item.0).collect();
+                    let depths = depths!(iter);
                     assert_eq!(depths, expected_depths);
                     Ok(())
                 }
@@ -171,10 +181,8 @@ mod tests {
                 #[test]
                 fn [< test_ $name _ parallel >] () -> Result<()> {
                     let (iter, expected_depths) = $values;
-                    let output = iter.into_par_iter()
-                        .collect::<Result<Vec<_>, _>>()?;
-                    let depths: Vec<_> = output.into_iter()
-                        .map(|item| item.0).collect();
+                    let iter = iter.into_par_iter();
+                    let depths = depths!(iter);
                     test::assert_eq_vec!(depths, expected_depths);
                     Ok(())
                 }

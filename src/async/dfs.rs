@@ -61,33 +61,33 @@ where
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.project();
 
-        println!("------- poll");
-        println!("stack size: {:?}", this.stack.len());
+        // println!("------- poll");
+        // println!("stack size: {:?}", this.stack.len());
 
         // we first poll for the newest child stream in dfs
-        println!("child stream futs: {:?}", this.child_streams_futs.len());
+        // println!("child stream futs: {:?}", this.child_streams_futs.len());
         match this.child_streams_futs.poll_next_unpin(cx) {
             Poll::Ready(Some((depth, stream))) => {
-                println!(
-                    "child stream fut depth {} completed: {:?}",
-                    depth,
-                    stream.is_ok()
-                );
+                // println!(
+                //     "child stream fut depth {} completed: {:?}",
+                //     depth,
+                //     stream.is_ok()
+                // );
                 let stream = match stream {
                     Ok(stream) => stream.boxed(),
                     Err(err) => futures::stream::iter([Err(err)]).boxed(),
                 };
                 this.stack.push((depth, Box::pin(stream)));
-                println!("stack size: {}", this.stack.len());
+                // println!("stack size: {}", this.stack.len());
             }
             // when there is no child stream future,
             // continue to poll the current stream
             Poll::Ready(None) => {
-                println!("no child stream to wait for");
+                // println!("no child stream to wait for");
             }
             // still waiting for the new child stream
             Poll::Pending => {
-                println!("child stream is still pending");
+                // println!("child stream is still pending");
                 return Poll::Pending;
             }
         }
@@ -102,7 +102,7 @@ where
                 None => None,
             };
 
-            println!("next item: {:?}", next_item);
+            // println!("next item: {:?}", next_item);
             match next_item {
                 // stream item is ready but failure success
                 Some(Poll::Ready((_, Some(Err(err))))) => {
@@ -136,7 +136,7 @@ where
                 // stream completed for this level completed
                 Some(Poll::Ready((_, None))) => {
                     this.stack.pop();
-                    println!("pop stack to size: {}", this.stack.len());
+                    // println!("pop stack to size: {}", this.stack.len());
                     // try again in the next round
                     // returning Poll::Pending here is bad because the runtime can not know when to poll
                     // us again to make progress since we never passed the cx to poll of the next

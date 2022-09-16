@@ -39,7 +39,7 @@ pub trait Node
 where
     Self: Hash + Eq + Clone + std::fmt::Debug,
 {
-    type Error: Hash + Eq + Clone + std::fmt::Debug;
+    type Error: std::fmt::Debug;
 
     /// Iterator of the node's children
     ///
@@ -53,7 +53,7 @@ pub trait FastNode
 where
     Self: Hash + Eq + Clone + std::fmt::Debug,
 {
-    type Error: Hash + Eq + Clone + std::fmt::Debug;
+    type Error: std::fmt::Debug;
 
     /// Callback for adding children nodes to the queue
     ///

@@ -3,7 +3,7 @@ use par_dfs::r#async;
 #[cfg(feature = "sync")]
 use par_dfs::sync;
 
-use criterion::{black_box, criterion_group, criterion_main};
+use criterion::{black_box, criterion_group};
 use std::convert::Infallible;
 use std::iter::Iterator;
 
@@ -128,48 +128,84 @@ impl CollatzNode {
     }
 }
 
-// pub mod sync {
-//     use super::*;
-//     use std::convert::Infallible;
+#[cfg(feature = "async")]
+mod async_collatz {
+    use super::CollatzNode;
+    use async_trait::async_trait;
+    use futures::StreamExt;
+    use par_dfs::r#async::{Node, NodeStream};
+    use std::convert::Infallible;
+    use std::sync::Arc;
+
+    #[async_trait]
+    impl Node for CollatzNode {
+        type Error = Infallible;
+
+        #[inline]
+        async fn children(
+            self: Arc<Self>,
+            _depth: usize,
+        ) -> Result<NodeStream<Self, Self::Error>, Self::Error> {
+            // let stream = tokio::task::spawn_blocking(move || {
+            //     futures::stream::iter(self.collatz_children()).boxed()
+            // })
+            // .await
+            // .unwrap();
+            let stream = futures::stream::iter(self.collatz_children()).boxed();
+            Ok(Box::pin(stream))
+        }
+    }
+}
+
+#[cfg(feature = "async")]
+pub use async_collatz::*;
 
 #[cfg(feature = "sync")]
-impl sync::FastNode for CollatzNode {
-    type Error = Infallible;
+mod sync_collatz {
+    use super::CollatzNode;
+    use par_dfs::sync::{ExtendQueue, FastNode, Node, NodeIter};
+    use std::convert::Infallible;
 
-    #[inline]
-    fn add_children<E>(&self, depth: usize, queue: &mut E) -> Result<(), Self::Error>
-    where
-        E: sync::ExtendQueue<Self, Self::Error>,
-    {
-        let n = self.0;
+    impl FastNode for CollatzNode {
+        type Error = Infallible;
 
-        // n can be reached by dividing by two
-        // as long as it doesn't overflow
-        if let Some(even) = n.checked_mul(2) {
-            queue.add(depth, Ok(Self(even)));
+        #[inline]
+        fn add_children<E>(&self, depth: usize, queue: &mut E) -> Result<(), Self::Error>
+        where
+            E: ExtendQueue<Self, Self::Error>,
+        {
+            let n = self.0;
+
+            // n can be reached by dividing by two
+            // as long as it doesn't overflow
+            if let Some(even) = n.checked_mul(2) {
+                queue.add(depth, Ok(Self(even)));
+            }
+
+            // n can be reached by 3x + 1 iff (n - 1) / 3 is an odd integer
+            if n > 4 && n % 6 == 4 {
+                queue.add(depth, Ok(Self((n - 1) / 3)));
+            }
+            Ok(())
         }
+    }
 
-        // n can be reached by 3x + 1 iff (n - 1) / 3 is an odd integer
-        if n > 4 && n % 6 == 4 {
-            queue.add(depth, Ok(Self((n - 1) / 3)));
+    impl Node for CollatzNode {
+        type Error = Infallible;
+
+        #[inline]
+        fn children(&self, _depth: usize) -> NodeIter<Self, Self::Error> {
+            Ok(Box::new(self.collatz_children()))
         }
-        Ok(())
     }
 }
 
 #[cfg(feature = "sync")]
-impl sync::Node for CollatzNode {
-    type Error = Infallible;
-
-    #[inline]
-    fn children(&self, _depth: usize) -> sync::NodeIter<Self, Self::Error> {
-        Ok(Box::new(self.collatz_children()))
-    }
-}
-// }
+pub use sync_collatz::*;
 
 const START: u32 = 1;
-const LIMIT: Option<usize> = Some(1_00);
+const SYNC_LIMIT: Option<usize> = Some(1_00);
+const ASYNC_LIMIT: Option<usize> = Some(60);
 const CIRCLES: bool = true;
 
 fn configure_group<M>(group: &mut criterion::BenchmarkGroup<M>)
@@ -178,6 +214,43 @@ where
 {
     group.sample_size(10);
     group.sampling_mode(criterion::SamplingMode::Flat);
+}
+
+macro_rules! bench_collatz_async {
+    ($name:ident: $group:literal, $iter:expr) => {
+        /// Benchmarks for [Collatz] $name.
+        fn $name(c: &mut criterion::Criterion) {
+            let mut group = c.benchmark_group($group);
+            configure_group(&mut group);
+
+            let runtime = tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .expect("build tokio runtime");
+
+            group.bench_function("ordered", |b| {
+                b.to_async(&runtime).iter(|| async {
+                    use futures::StreamExt;
+                    $iter
+                        .map(|node| async move { node })
+                        .buffered(8)
+                        .count()
+                        .await;
+                })
+            });
+
+            group.bench_function("unordered", |b| {
+                b.to_async(&runtime).iter(|| async {
+                    use futures::StreamExt;
+                    $iter
+                        .map(|node| async move { node })
+                        .buffer_unordered(8)
+                        .count()
+                        .await;
+                })
+            });
+        }
+    };
 }
 
 macro_rules! bench_collatz_sync {
@@ -220,42 +293,79 @@ macro_rules! bench_collatz_sync {
     };
 }
 
+#[cfg(feature = "async")]
+bench_collatz_async!(
+    bench_collatz_async_dfs:
+    "collatz/async/dfs",
+    r#async::Dfs::<CollatzNode>::new(black_box(START), ASYNC_LIMIT, CIRCLES)
+);
+
+#[cfg(feature = "async")]
+bench_collatz_async!(
+    bench_collatz_async_bfs:
+    "collatz/async/bfs",
+    r#async::Bfs::<CollatzNode>::new(black_box(START), ASYNC_LIMIT, CIRCLES)
+);
+
+#[cfg(feature = "sync")]
 bench_collatz_sync!(
     bench_collatz_sync_fast_bfs:
     "collatz/sync/fastbfs",
-    sync::FastBfs::<CollatzNode>::new(black_box(START), LIMIT, CIRCLES)
+    sync::FastBfs::<CollatzNode>::new(black_box(START), SYNC_LIMIT, CIRCLES)
 );
 
+#[cfg(feature = "sync")]
 bench_collatz_sync!(
     bench_collatz_sync_bfs:
     "collatz/sync/bfs",
-    sync::Bfs::<CollatzNode>::new(black_box(START), LIMIT, CIRCLES)
+    sync::Bfs::<CollatzNode>::new(black_box(START), SYNC_LIMIT, CIRCLES)
 );
 
+#[cfg(feature = "sync")]
 bench_collatz_sync!(
     bench_collatz_sync_fast_dfs:
     "collatz/sync/fastdfs",
-    sync::FastDfs::<CollatzNode>::new(black_box(START), LIMIT, CIRCLES)
+    sync::FastDfs::<CollatzNode>::new(black_box(START), SYNC_LIMIT, CIRCLES)
 );
 
+#[cfg(feature = "sync")]
 bench_collatz_sync!(
     bench_collatz_sync_dfs:
     "collatz/sync/dfs",
-    sync::Dfs::<CollatzNode>::new(black_box(START), LIMIT, CIRCLES)
+    sync::Dfs::<CollatzNode>::new(black_box(START), SYNC_LIMIT, CIRCLES)
 );
 
+#[cfg(feature = "sync")]
 bench_collatz_sync!(
     bench_collatz_sync_custom_dfs:
     "collatz/sync/customdfs",
-    CollatzDfs::new(black_box(START), LIMIT, CIRCLES)
+    CollatzDfs::new(black_box(START), SYNC_LIMIT, CIRCLES)
 );
 
+#[cfg(feature = "async")]
 criterion_group!(
-    collatz,
+    collatz_async,
+    bench_collatz_async_bfs,
+    bench_collatz_async_dfs,
+);
+
+#[cfg(feature = "sync")]
+criterion_group!(
+    collatz_sync,
     bench_collatz_sync_bfs,
     bench_collatz_sync_fast_bfs,
     bench_collatz_sync_dfs,
     bench_collatz_sync_fast_dfs,
     bench_collatz_sync_custom_dfs
 );
-criterion_main!(collatz);
+
+fn main() {
+    #[cfg(feature = "sync")]
+    collatz_sync();
+    #[cfg(feature = "async")]
+    collatz_async();
+
+    criterion::Criterion::default()
+        .configure_from_args()
+        .final_summary();
+}

@@ -63,7 +63,6 @@ impl<I, E> Default for Queue<I, E> {
 impl<I, E> super::ExtendQueue<I, E> for Queue<I, E>
 where
     I: Hash + Eq + Clone,
-    E: Hash + Eq + Clone,
 {
     #[inline]
     fn add(&mut self, depth: usize, item: Result<I, E>) {
@@ -90,16 +89,18 @@ where
         if self.allow_circles {
             self.inner.extend(iter.into_iter().map(|i| (depth, i)));
         } else {
-            let new = iter
-                .into_iter()
-                .filter(|c| match c {
-                    Ok(item) => !self.visited.contains(item),
-                    Err(_) => true,
-                })
-                .collect::<HashSet<_>>();
-            self.visited
-                .extend(new.iter().cloned().filter_map(Result::ok));
-            self.inner.extend(new.into_iter().map(|i| (depth, i)));
+            let not_visited = iter.into_iter().filter(|c| match c {
+                Ok(item) => {
+                    if self.visited.contains(item) {
+                        false
+                    } else {
+                        self.visited.insert(item.clone());
+                        true
+                    }
+                }
+                Err(_) => true,
+            });
+            self.inner.extend(not_visited.map(|i| (depth, i)));
         }
     }
 }
