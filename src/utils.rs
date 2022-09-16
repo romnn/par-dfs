@@ -36,6 +36,7 @@ pub mod test {
     }
 
     #[cfg(feature = "async")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "async")))]
     pub mod r#async {
         use crate::r#async::{Node, NodeStream};
         use async_trait::async_trait;
@@ -67,6 +68,7 @@ pub mod test {
     }
 
     #[cfg(feature = "sync")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "sync")))]
     pub mod sync {
         use crate::sync::{ExtendQueue, FastNode, Node, NodeIter};
 
@@ -95,6 +97,7 @@ pub mod test {
     }
 
     #[cfg(any(feature = "async", feature = "sync"))]
+    #[cfg_attr(docsrs, doc(cfg(any(feature = "async", feature = "sync"))))]
     pub(crate) fn is_monotonic<I, T>(iter: I, order: std::cmp::Ordering) -> bool
     where
         I: std::iter::IntoIterator<Item = T>,
