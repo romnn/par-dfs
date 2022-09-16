@@ -1,9 +1,7 @@
 #[cfg(test)]
 pub mod test {
-    use std::cmp::{Ord, Ordering};
-    use std::iter::IntoIterator;
 
-    #[allow(dead_code)]
+    #[allow(unused_macros)]
     macro_rules! assert_eq_vec {
         ($left:expr, $right:expr $(,)?) => {{
             let mut left = $left.clone();
@@ -21,6 +19,7 @@ pub mod test {
         }};
     }
 
+    #[allow(unused_imports)]
     pub(crate) use assert_eq_vec;
 
     #[derive(thiserror::Error, Hash, PartialEq, Eq, Clone, Debug)]
@@ -95,17 +94,18 @@ pub mod test {
         }
     }
 
-    pub(crate) fn is_monotonic<I, T>(iter: I, order: Ordering) -> bool
+    #[cfg(any(feature = "async", feature = "sync"))]
+    pub(crate) fn is_monotonic<I, T>(iter: I, order: std::cmp::Ordering) -> bool
     where
-        I: IntoIterator<Item = T>,
-        <I as IntoIterator>::IntoIter: Clone,
-        T: Ord,
+        I: std::iter::IntoIterator<Item = T>,
+        <I as std::iter::IntoIterator>::IntoIter: Clone,
+        T: std::cmp::Ord,
     {
         let prev = iter.into_iter();
         let next = prev.clone().next();
         prev.zip(next).all(|(prev, next)| {
             let found = next.cmp(&prev);
-            found == Ordering::Equal || found == order
+            found == std::cmp::Ordering::Equal || found == order
         })
     }
 }

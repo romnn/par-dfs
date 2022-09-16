@@ -3,8 +3,8 @@ use par_dfs::r#async;
 #[cfg(feature = "sync")]
 use par_dfs::sync;
 
+#[cfg(any(feature = "async", feature = "sync"))]
 use criterion::{black_box, criterion_group};
-use std::convert::Infallible;
 use std::iter::Iterator;
 
 /// Enumerates the numbers that reach the given starting point when iterating
@@ -15,10 +15,9 @@ use std::iter::Iterator;
 
 pub mod custom_dfs {
     use std::collections::{HashSet, VecDeque};
-    use std::convert::Infallible;
     use std::iter::Iterator;
 
-    type Queue = VecDeque<(usize, Result<u32, Infallible>)>;
+    type Queue = VecDeque<(usize, Result<u32, std::convert::Infallible>)>;
 
     #[derive(Clone, Debug)]
     pub struct CollatzDfs {
@@ -40,7 +39,7 @@ pub mod custom_dfs {
     }
 
     impl Iterator for CollatzDfs {
-        type Item = Result<u32, Infallible>;
+        type Item = Result<u32, std::convert::Infallible>;
 
         #[inline]
         fn next(&mut self) -> Option<Self::Item> {
@@ -110,7 +109,9 @@ impl From<u32> for CollatzNode {
 
 impl CollatzNode {
     #[inline]
-    pub fn collatz_children(&self) -> impl Iterator<Item = Result<CollatzNode, Infallible>> {
+    pub fn collatz_children(
+        &self,
+    ) -> impl Iterator<Item = Result<CollatzNode, std::convert::Infallible>> {
         let n = self.0;
         let mut children = vec![];
 
@@ -134,23 +135,17 @@ mod async_collatz {
     use async_trait::async_trait;
     use futures::StreamExt;
     use par_dfs::r#async::{Node, NodeStream};
-    use std::convert::Infallible;
     use std::sync::Arc;
 
     #[async_trait]
     impl Node for CollatzNode {
-        type Error = Infallible;
+        type Error = std::convert::Infallible;
 
         #[inline]
         async fn children(
             self: Arc<Self>,
             _depth: usize,
         ) -> Result<NodeStream<Self, Self::Error>, Self::Error> {
-            // let stream = tokio::task::spawn_blocking(move || {
-            //     futures::stream::iter(self.collatz_children()).boxed()
-            // })
-            // .await
-            // .unwrap();
             let stream = futures::stream::iter(self.collatz_children()).boxed();
             Ok(Box::pin(stream))
         }
@@ -164,10 +159,9 @@ pub use async_collatz::*;
 mod sync_collatz {
     use super::CollatzNode;
     use par_dfs::sync::{ExtendQueue, FastNode, Node, NodeIter};
-    use std::convert::Infallible;
 
     impl FastNode for CollatzNode {
-        type Error = Infallible;
+        type Error = std::convert::Infallible;
 
         #[inline]
         fn add_children<E>(&self, depth: usize, queue: &mut E) -> Result<(), Self::Error>
@@ -191,7 +185,7 @@ mod sync_collatz {
     }
 
     impl Node for CollatzNode {
-        type Error = Infallible;
+        type Error = std::convert::Infallible;
 
         #[inline]
         fn children(&self, _depth: usize) -> NodeIter<Self, Self::Error> {
@@ -203,11 +197,17 @@ mod sync_collatz {
 #[cfg(feature = "sync")]
 pub use sync_collatz::*;
 
-const START: u32 = 1;
+#[cfg(feature = "sync")]
 const SYNC_LIMIT: Option<usize> = Some(1_00);
+#[cfg(feature = "async")]
 const ASYNC_LIMIT: Option<usize> = Some(60);
-const CIRCLES: bool = true;
 
+#[cfg(any(feature = "async", feature = "sync"))]
+const CIRCLES: bool = true;
+#[cfg(any(feature = "async", feature = "sync"))]
+const START: u32 = 1;
+
+#[cfg(any(feature = "async", feature = "sync"))]
 fn configure_group<M>(group: &mut criterion::BenchmarkGroup<M>)
 where
     M: criterion::measurement::Measurement,
@@ -216,6 +216,7 @@ where
     group.sampling_mode(criterion::SamplingMode::Flat);
 }
 
+#[cfg(feature = "async")]
 macro_rules! bench_collatz_async {
     ($name:ident: $group:literal, $iter:expr) => {
         /// Benchmarks for [Collatz] $name.
@@ -253,6 +254,7 @@ macro_rules! bench_collatz_async {
     };
 }
 
+#[cfg(feature = "sync")]
 macro_rules! bench_collatz_sync {
     ($name:ident: $group:literal, $iter:expr) => {
         /// Benchmarks for [Collatz] $name.

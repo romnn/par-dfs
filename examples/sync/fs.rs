@@ -1,6 +1,3 @@
-#[cfg(not(feature = "sync"))]
-compile_error!("Feature \"sync\" must be enabled for this example");
-
 use anyhow::Result;
 
 #[cfg(feature = "sync")]
@@ -65,6 +62,9 @@ mod sealed {
 }
 
 fn main() -> Result<()> {
+    #[cfg(not(feature = "sync"))]
+    eprintln!("Feature \"sync\" must be enabled for this example");
+
     #[cfg(feature = "sync")]
     {
         use clap::Parser;

@@ -1,6 +1,3 @@
-#[cfg(not(feature = "async"))]
-compile_error!("Feature \"async\" must be enabled for this example");
-
 use anyhow::Result;
 
 #[cfg(feature = "async")]
@@ -85,6 +82,9 @@ mod sealed {
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
+    #[cfg(not(feature = "async"))]
+    eprintln!("Feature \"async\" must be enabled for this example");
+
     #[cfg(feature = "async")]
     {
         use clap::Parser;
