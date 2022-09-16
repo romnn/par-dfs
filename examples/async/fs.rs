@@ -8,7 +8,7 @@ mod sealed {
     use anyhow::Result;
     use async_trait::async_trait;
     use futures::StreamExt;
-    use par_dfs::r#async::*;
+    use par_dfs::r#async::{Node, NodeStream};
     use std::fs::FileType;
     use std::path::PathBuf;
     use std::sync::Arc;
@@ -91,9 +91,9 @@ async fn main() -> Result<()> {
         use futures::StreamExt;
         use par_dfs::r#async::Bfs;
         use sealed::FsNode;
-        use std::ops::Deref;
         use std::path::PathBuf;
         use std::sync::Arc;
+        use std::time::Instant;
         use tokio::sync::Mutex;
 
         #[derive(Parser, Debug)]
@@ -104,16 +104,17 @@ async fn main() -> Result<()> {
             max_depth: usize,
         }
 
-        let options = Options::parse();
-        let root: FsNode = options.path.try_into()?;
-        let bfs: Bfs<FsNode> = Bfs::new(root, options.max_depth, true);
-
         #[derive(Debug, Default)]
         struct Stats {
             files: usize,
             dirs: usize,
             errs: usize,
         }
+
+        let start = Instant::now();
+        let options = Options::parse();
+        let root: FsNode = options.path.try_into()?;
+        let bfs: Bfs<FsNode> = Bfs::new(root, options.max_depth, true);
 
         let stats = Arc::new(Mutex::new(Stats::default()));
 
@@ -130,7 +131,7 @@ async fn main() -> Result<()> {
             }
         })
         .await;
-        println!("{:?}", stats.lock().await.deref());
+        println!("found {:?} in {:?}", *stats.lock().await, start.elapsed());
     }
     Ok(())
 }
