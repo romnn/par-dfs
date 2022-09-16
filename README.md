@@ -2,9 +2,9 @@
 
 [<img alt="build status" src="https://img.shields.io/github/workflow/status/romnn/par-dfs/build?label=build">](https://github.com/romnn/par-dfs/actions/workflows/build.yml)
 [<img alt="test status" src="https://img.shields.io/github/workflow/status/romnn/par-dfs/test?label=test">](https://github.com/romnn/par-dfs/actions/workflows/test.yml)
-[<img alt="crates.io" src="https://img.shields.io/crates/v/par-dfs">](https://crates.io/crates/par-dfs)
-[<img alt="docs.rs" src="https://img.shields.io/docsrs/par-dfs/latest">](https://docs.rs/par-dfs)
 [<img alt="benchmarks" src="https://img.shields.io/github/workflow/status/romnn/par-dfs/bench?label=bench">](https://romnn.github.io/par-dfs/)
+[<img alt="crates.io" src="https://img.shields.io/crates/v/par-dfs">](https://crates.io/crates/par-dfs)
+[<img alt="docs.rs" src="https://img.shields.io/docsrs/par-dfs/latest?label=docs.rs">](https://docs.rs/par-dfs)
 
 Parallel, serial, and async DFS and BFS traversal iterators in Rust.
 
@@ -48,6 +48,8 @@ cargo criterion --features sync -- sync
 cargo criterion --features full -- dfs
 ```
 
+Benchmark reports from CI are published are available [here](https://romnn.github.io/par-dfs/).
+
 #### Acknowledgements
 
 The [`rayon::iter::ParallelIterator`](https://docs.rs/rayon/latest/rayon/iter/trait.ParallelIterator.html) implementation for the dynamically growing graph traversal is based on the amazing work in [tavianator's blog post](https://tavianator.com/2022/parallel_graph_search.html).
@@ -57,5 +59,4 @@ The implementation of [`futures_util::stream::Buffered`](https://docs.rs/futures
 #### TODO
 
 - maybe merge the FastNode and Node traits
-- do not allow `add` and `add_all` to specify the depth themselves
 - add examples in the documentation

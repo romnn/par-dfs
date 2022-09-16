@@ -164,7 +164,7 @@ mod sync_collatz {
         type Error = std::convert::Infallible;
 
         #[inline]
-        fn add_children<E>(&self, depth: usize, queue: &mut E) -> Result<(), Self::Error>
+        fn add_children<E>(&self, _depth: usize, queue: &mut E) -> Result<(), Self::Error>
         where
             E: ExtendQueue<Self, Self::Error>,
         {
@@ -173,12 +173,12 @@ mod sync_collatz {
             // n can be reached by dividing by two
             // as long as it doesn't overflow
             if let Some(even) = n.checked_mul(2) {
-                queue.add(depth, Ok(Self(even)));
+                queue.add(Ok(Self(even)));
             }
 
             // n can be reached by 3x + 1 iff (n - 1) / 3 is an odd integer
             if n > 4 && n % 6 == 4 {
-                queue.add(depth, Ok(Self((n - 1) / 3)));
+                queue.add(Ok(Self((n - 1) / 3)));
             }
             Ok(())
         }

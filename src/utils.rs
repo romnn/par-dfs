@@ -89,8 +89,8 @@ pub mod test {
             where
                 E: ExtendQueue<Self, Self::Error>,
             {
-                queue.add(depth, Ok(Self(depth)));
-                queue.add_all(depth, [Ok(Self(depth))]);
+                queue.add(Ok(Self(depth)));
+                queue.add_all([Ok(Self(depth))]);
                 Ok(())
             }
         }

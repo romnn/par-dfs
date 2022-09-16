@@ -111,8 +111,10 @@ where
         let mut queue = queue::Queue::new(allow_circles);
         let root: N = root.into();
         let max_depth = max_depth.into();
-        if let Err(err) = root.add_children(1, &mut queue) {
-            queue.add(0, Err(err));
+        let depth = 1;
+        let mut depth_queue = queue::QueueWrapper::new(depth, &mut queue);
+        if let Err(err) = root.add_children(depth, &mut depth_queue) {
+            depth_queue.add(Err(err));
         }
         Self { queue, max_depth }
     }
@@ -136,8 +138,10 @@ where
                         return Some(Ok(node));
                     }
                 }
-                if let Err(err) = node.add_children(depth + 1, &mut self.queue) {
-                    self.queue.add(depth + 1, Err(err));
+                let next_depth = depth + 1;
+                let mut depth_queue = queue::QueueWrapper::new(next_depth, &mut self.queue);
+                if let Err(err) = node.add_children(next_depth, &mut depth_queue) {
+                    depth_queue.add(Err(err));
                 }
                 Some(Ok(node))
             }
@@ -258,5 +262,6 @@ mod tests {
             [1, 2, 3]
         ),
         test_depths_serial,
+        test_depths_parallel,
     );
 }

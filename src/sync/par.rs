@@ -176,7 +176,7 @@ macro_rules! parallel_iterator {
 
         impl<N> rayon::iter::IntoParallelIterator for $iter<N>
         where
-            N: $node + Send,
+            N: $node + Sync + Send,
             N::Error: Send,
         {
             type Iter = $crate::sync::par::ParallelSplittableIterator<Self>;

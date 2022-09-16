@@ -19,12 +19,12 @@ use std::iter::{IntoIterator, Iterator};
 /// [`Iterator`]: trait@std::iter::Iterator
 pub trait ExtendQueue<I, E> {
     /// Add single item with given depth to the queue.
-    fn add(&mut self, depth: usize, item: Result<I, E>);
+    fn add(&mut self, item: Result<I, E>);
 
     /// Extend the queue with the contents of an [`Iterator`].
     ///
     /// [`Iterator`]: trait@std::iter::Iterator
-    fn add_all<Iter>(&mut self, depth: usize, iter: Iter)
+    fn add_all<Iter>(&mut self, iter: Iter)
     where
         Iter: IntoIterator<Item = Result<I, E>>;
 }
@@ -63,6 +63,16 @@ pub(crate) trait Queue<I, E> {
     ///   
     /// Panics if `at > self.len()`
     fn split_off(&mut self, at: usize) -> Self;
+
+    /// Add single item with given depth to the queue.
+    fn add(&mut self, depth: usize, item: Result<I, E>);
+
+    /// Extend the queue with the contents of an [`Iterator`].
+    ///
+    /// [`Iterator`]: trait@std::iter::Iterator
+    fn add_all<Iter>(&mut self, depth: usize, iter: Iter)
+    where
+        Iter: IntoIterator<Item = Result<I, E>>;
 }
 
 /// A boxed [`Iterator`] of [`Node`]s.

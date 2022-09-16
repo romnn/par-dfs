@@ -40,7 +40,7 @@ mod sealed {
     impl FastNode for FsNode {
         type Error = anyhow::Error;
 
-        fn add_children<E>(&self, depth: usize, queue: &mut E) -> Result<(), Self::Error>
+        fn add_children<E>(&self, _depth: usize, queue: &mut E) -> Result<(), Self::Error>
         where
             E: ExtendQueue<Self, Self::Error>,
         {
@@ -50,7 +50,7 @@ mod sealed {
                         Ok(entry) => entry.path().try_into(),
                         Err(err) => Err(err.into()),
                     });
-                    queue.add_all(depth, nodes);
+                    queue.add_all(nodes);
                 }
                 FsNode::File(_) => {}
             };
