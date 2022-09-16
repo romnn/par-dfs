@@ -1,5 +1,11 @@
 ## par-dfs
 
+[<img alt="build status" src="https://img.shields.io/github/workflow/status/romnn/par-dfs/build">](https://github.com/romnn/par-dfs/actions/workflows/build.yml)
+[<img alt="test status" src="https://img.shields.io/github/workflow/status/romnn/par-dfs/test">](https://github.com/romnn/par-dfs/actions/workflows/test.yml)
+[<img alt="crates.io" src="https://img.shields.io/crates/v/par-dfs">](https://crates.io/crates/par-dfs)
+[<img alt="docs.rs" src="https://img.shields.io/docsrs/par-dfs/latest">](https://docs.rs/par-dfs)
+[<img alt="benchmarks" src="https://img.shields.io/github/workflow/status/romnn/par-dfs/bench">](https://romnn.github.io/par-dfs/)
+
 Parallel, serial, and async DFS and BFS traversal iterators in Rust.
 
 ```toml
@@ -9,7 +15,7 @@ par-dfs = "0"
 
 #### Usage
 
-For usage examples, check the [examples](https://github.com/romnn/par-dfs/tree/main/examples) and TODO
+For usage examples, check the [examples](https://github.com/romnn/par-dfs/tree/main/examples) and [documentation](https://docs.rs/par-dfs).
 
 #### Examples
 
@@ -52,4 +58,4 @@ The implementation of [`futures_util::stream::Buffered`](https://docs.rs/futures
 
 - maybe merge the FastNode and Node traits
 - do not allow `add` and `add_all` to specify the depth themselves
-
+- add examples in the documentation
