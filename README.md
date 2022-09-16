@@ -1,6 +1,6 @@
 ## par-dfs
 
-[<img alt="build status" src="https://img.shields.io/github/workflow/status/romnn/par-dfs/build?label=build">]
+[<img alt="build status" src="https://img.shields.io/github/workflow/status/romnn/par-dfs/build?label=build">]\
 (https://github.com/romnn/par-dfs/actions/workflows/build.yml)
 [<img alt="test status" src="https://img.shields.io/github/workflow/status/romnn/par-dfs/test?label=test">]
 (https://github.com/romnn/par-dfs/actions/workflows/test.yml)
