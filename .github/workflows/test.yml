@@ -26,9 +26,18 @@ jobs:
         with:
           toolchain: stable
           override: true
+
       - name: Test
         run: >-
           cargo test
           --no-default-features
           --features "${{ matrix.features }}"
           --all-targets
+
+      - name: Lint
+        run: >-
+          cargo clippy
+          --tests
+          --benches
+          --examples
+          -- -Dclippy::all -Dclippy::pedantic
