@@ -1,0 +1,46 @@
+name: bench
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: bench (features ${{ matrix.features }})
+    strategy:
+      fail-fast: false
+      matrix:
+        features:
+          [
+            "",
+            "sync",
+            "async",
+            "rayon",
+            "sync,async",
+            "sync,rayon",
+            "async,rayon",
+            "full",
+          ]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Install cargo criterion
+        run: cargo install cargo-criterion
+
+      - name: Benchmark
+        run: >-
+          cargo criterion
+          --no-default-features
+          --features "${{ matrix.features }}"
+
+      - name: Publish benchmark report
+        if: "${{ matrix.features == 'full' }}" 
+        uses: JamesIves/github-pages-deploy-action@3.7.1
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: gh-pages
+          FOLDER: target/criterion/reports/
+          CLEAN: true
