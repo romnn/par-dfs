@@ -1,5 +1,3 @@
-use anyhow::Result;
-
 #[cfg(feature = "sync")]
 mod sealed {
     use anyhow::Result;
@@ -61,60 +59,60 @@ mod sealed {
     }
 }
 
-fn main() -> Result<()> {
-    #[cfg(not(feature = "sync"))]
-    eprintln!("Feature \"sync\" must be enabled for this example");
+#[cfg(not(feature = "sync"))]
+fn main() {
+    panic!("Feature \"sync\" must be enabled for this example");
+}
 
-    #[cfg(feature = "sync")]
-    {
-        use clap::Parser;
-        use par_dfs::r#sync::FastBfs;
-        #[cfg(feature = "rayon")]
-        use rayon::iter::{IntoParallelIterator, ParallelIterator};
-        use sealed::FsNode;
-        use std::path::PathBuf;
-        use std::sync::Mutex;
-        use std::time::Instant;
+#[cfg(feature = "sync")]
+fn main() -> anyhow::Result<()> {
+    use clap::Parser;
+    use par_dfs::r#sync::FastBfs;
+    #[cfg(feature = "rayon")]
+    use rayon::iter::{IntoParallelIterator, ParallelIterator};
+    use sealed::FsNode;
+    use std::path::PathBuf;
+    use std::sync::Mutex;
+    use std::time::Instant;
 
-        #[derive(Parser, Debug)]
-        pub struct Options {
-            #[clap(short = 'p', long = "path", help = "path from which to iterate")]
-            path: PathBuf,
-            #[clap(short = 'd', long = "depth", help = "max depth", default_value = "2")]
-            max_depth: usize,
-        }
-
-        #[derive(Debug, Default)]
-        struct Stats {
-            files: usize,
-            dirs: usize,
-            errs: usize,
-        }
-
-        let start = Instant::now();
-        let options = Options::parse();
-        let root: FsNode = options.path.try_into()?;
-        let bfs: FastBfs<FsNode> = FastBfs::new(root, options.max_depth, true);
-
-        #[cfg(feature = "rayon")]
-        let bfs = bfs.into_par_iter();
-
-        let stats = Mutex::new(Stats::default());
-
-        bfs.for_each(|node| {
-            println!("{:?}", node);
-            let mut stats = stats.lock().unwrap();
-            match node {
-                Ok(FsNode::Dir(_)) => stats.dirs += 1,
-                Ok(FsNode::File(_)) => stats.files += 1,
-                Err(_) => stats.errs += 1,
-            };
-        });
-        println!(
-            "found {:?} in {:?}",
-            *stats.lock().unwrap(),
-            start.elapsed()
-        );
+    #[derive(Parser, Debug)]
+    pub struct Options {
+        #[clap(short = 'p', long = "path", help = "path from which to iterate")]
+        path: PathBuf,
+        #[clap(short = 'd', long = "depth", help = "max depth", default_value = "2")]
+        max_depth: usize,
     }
+
+    #[derive(Debug, Default)]
+    struct Stats {
+        files: usize,
+        dirs: usize,
+        errs: usize,
+    }
+
+    let start = Instant::now();
+    let options = Options::parse();
+    let root: FsNode = options.path.try_into()?;
+    let bfs: FastBfs<FsNode> = FastBfs::new(root, options.max_depth, true);
+
+    #[cfg(feature = "rayon")]
+    let bfs = bfs.into_par_iter();
+
+    let stats = Mutex::new(Stats::default());
+
+    bfs.for_each(|node| {
+        println!("{:?}", node);
+        let mut stats = stats.lock().unwrap();
+        match node {
+            Ok(FsNode::Dir(_)) => stats.dirs += 1,
+            Ok(FsNode::File(_)) => stats.files += 1,
+            Err(_) => stats.errs += 1,
+        };
+    });
+    println!(
+        "found {:?} in {:?}",
+        *stats.lock().unwrap(),
+        start.elapsed()
+    );
     Ok(())
 }
