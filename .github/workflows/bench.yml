@@ -5,21 +5,7 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
-    name: bench (features ${{ matrix.features }})
-    strategy:
-      fail-fast: false
-      matrix:
-        features:
-          [
-            "",
-            "sync",
-            "async",
-            "rayon",
-            "sync,async",
-            "sync,rayon",
-            "async,rayon",
-            "full",
-          ]
+    name: benchmark
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -31,13 +17,9 @@ jobs:
         run: cargo install cargo-criterion
 
       - name: Benchmark
-        run: >-
-          cargo criterion
-          --no-default-features
-          --features "${{ matrix.features }}"
+        run: cargo criterion --features full
 
       - name: Publish benchmark report
-        if: "${{ matrix.features == 'full' }}" 
         uses: JamesIves/github-pages-deploy-action@3.7.1
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
