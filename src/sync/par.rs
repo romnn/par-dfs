@@ -3,6 +3,9 @@ use rayon::iter::ParallelIterator;
 use rayon::{current_num_threads, join_context};
 use std::iter::Iterator;
 
+/// Parallel iteration with the `rayon::iter::ParallelIterator` based on the
+/// amazing [blog post by tavianator](https://tavianator.com/2022/parallel_graph_search.html)
+
 /// An iterator that can be split.
 pub trait SplittableIterator: Iterator + Sized {
     /// Split this iterator in two, if possible.
