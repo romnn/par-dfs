@@ -49,3 +49,33 @@ where
         depth: usize,
     ) -> Result<NodeStream<Self, Self::Error>, Self::Error>;
 }
+
+#[cfg(test)]
+mod tests {
+    use anyhow::Result;
+    use futures::StreamExt;
+    use pretty_assertions::assert_eq;
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_streams_iter_is_clonable() -> Result<()> {
+        let stream = futures::stream::iter([1, 2, 3]);
+        let s1: Vec<_> = stream.clone().collect().await;
+        let s2: Vec<_> = stream.clone().collect().await;
+        assert_eq!(s1.as_slice(), [1, 2, 3]);
+        assert_eq!(s2.as_slice(), [1, 2, 3]);
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_streams_map_is_not_clonable() -> Result<()> {
+        let stream = futures::stream::iter([1, 2, 3]);
+        let _stream = stream.map(|i| async move { i * 2 });
+        // this does not work!
+        // cannot clone any complex streams!
+        // let s1: Vec<_> = stream.clone().collect().await;
+        // let s2: Vec<_> = stream.clone().collect().await;
+        // assert_eq!(s1.as_slice(), [1, 4, 6]);
+        // assert_eq!(s2.as_slice(), [1, 4, 6]);
+        Ok(())
+    }
+}
