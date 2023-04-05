@@ -1,8 +1,8 @@
 ## par-dfs
 
-[<img alt="build status" src="https://img.shields.io/github/workflow/status/romnn/par-dfs/build?label=build">](https://github.com/romnn/par-dfs/actions/workflows/build.yml)
-[<img alt="test status" src="https://img.shields.io/github/workflow/status/romnn/par-dfs/test?label=test">](https://github.com/romnn/par-dfs/actions/workflows/test.yml)
-[<img alt="benchmarks" src="https://img.shields.io/github/workflow/status/romnn/par-dfs/bench?label=bench">](https://romnn.github.io/par-dfs/)
+[<img alt="build status" src="https://img.shields.io/github/actions/workflow/status/romnn/par-dfs/build.yml?label=build">](https://github.com/romnn/par-dfs/actions/workflows/build.yml)
+[<img alt="test status" src="https://img.shields.io/github/actions/workflow/status/romnn/par-dfs/test.yml?label=test">](https://github.com/romnn/par-dfs/actions/workflows/test.yml)
+[<img alt="benchmarks" src="https://img.shields.io/github/actions/workflow/status/romnn/par-dfs/bench.yml?label=bench">](https://romnn.github.io/par-dfs/)
 [<img alt="crates.io" src="https://img.shields.io/crates/v/par-dfs">](https://crates.io/crates/par-dfs)
 [<img alt="docs.rs" src="https://img.shields.io/docsrs/par-dfs/latest?label=docs.rs">](https://docs.rs/par-dfs)
 
