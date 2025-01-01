@@ -33,9 +33,11 @@ pub trait ExtendQueue<I, E> {
 /// from the front or back.
 pub(crate) trait Queue<I, E> {
     /// Returns the number of items in the queue
+    #[allow(dead_code)]
     fn len(&self) -> usize;
 
     /// Returns `true` if the queue is empty
+    #[allow(dead_code)]
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -52,7 +54,6 @@ pub(crate) trait Queue<I, E> {
     /// [`None`]: type@std::option::Option::None
     fn pop_front(&mut self) -> Option<(usize, Result<I, E>)>;
 
-    #[must_use]
     /// Splits the queue into two at the given index.
     /// Returns a newly allocated queue containing the elements in
     /// the range `[at, len)`.
@@ -60,8 +61,10 @@ pub(crate) trait Queue<I, E> {
     /// the elements `[0, at)` with its previous capacity unchanged.
     ///
     /// # Panics
-    ///   
+    ///
     /// Panics if `at > self.len()`
+    #[must_use]
+    #[allow(dead_code)]
     fn split_off(&mut self, at: usize) -> Self;
 
     /// Add single item with given depth to the queue.

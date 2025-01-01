@@ -238,16 +238,10 @@ mod par {
     parallel_iterator!(FastBfs<FastNode>);
 }
 
-#[cfg(feature = "rayon")]
-pub use par::*;
-
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::utils::test;
+    use super::{Bfs, FastBfs};
     use anyhow::Result;
-    use pretty_assertions::assert_eq;
-    use std::cmp::Ordering;
 
     #[cfg(feature = "rayon")]
     use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -269,10 +263,11 @@ mod tests {
             paste::item! {
                 #[test]
                 fn [< test_ $name _ serial >] () -> Result<()> {
+                    use std::cmp::Ordering;
                     let (iter, expected_depths) = $values;
                     let depths = depths!(iter);
-                    assert!(test::is_monotonic(&depths, Ordering::Greater));
-                    assert_eq!(depths, expected_depths);
+                    assert!(crate::utils::test::is_monotonic(&depths, Ordering::Greater));
+                    similar_asserts::assert_eq!(depths, expected_depths);
                     Ok(())
                 }
             }
@@ -288,7 +283,7 @@ mod tests {
                     let (iter, expected_depths) = $values;
                     let iter = iter.into_par_iter();
                     let depths = depths!(iter);
-                    test::assert_eq_vec!(depths, expected_depths);
+                    crate::utils::test::assert_eq_sorted!(depths, expected_depths);
                     Ok(())
                 }
             }
@@ -306,7 +301,7 @@ mod tests {
     test_depths!(
         bfs:
         (
-            Bfs::<test::Node>::new(0, 3, true),
+            Bfs::<crate::utils::test::Node>::new(0, 3, true),
             [1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3]
         ),
         test_depths_serial,
@@ -316,7 +311,7 @@ mod tests {
     test_depths!(
         fast_bfs:
         (
-            FastBfs::<test::Node>::new(0, 3, true),
+            FastBfs::<crate::utils::test::Node>::new(0, 3, true),
             [1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3]
         ),
         test_depths_serial,
@@ -326,7 +321,7 @@ mod tests {
     test_depths!(
         fast_bfs_no_circles:
         (
-            FastBfs::<test::Node>::new(0, 3, false),
+            FastBfs::<crate::utils::test::Node>::new(0, 3, false),
             [1, 2, 3]
         ),
         test_depths_serial,
@@ -335,7 +330,7 @@ mod tests {
     test_depths!(
         bfs_no_circles:
         (
-            Bfs::<test::Node>::new(0, 3, false),
+            Bfs::<crate::utils::test::Node>::new(0, 3, false),
             [1, 2, 3]
         ),
         test_depths_serial,

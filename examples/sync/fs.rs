@@ -101,7 +101,7 @@ fn main() -> anyhow::Result<()> {
     let stats = Mutex::new(Stats::default());
 
     bfs.for_each(|node| {
-        println!("{:?}", node);
+        println!("{node:?}");
         let mut stats = stats.lock().unwrap();
         match node {
             Ok(FsNode::Dir(_)) => stats.dirs += 1,

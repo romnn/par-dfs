@@ -72,18 +72,27 @@ where
 
     #[inline]
     fn add(&mut self, depth: usize, item: Result<I, E>) {
-        if self.allow_circles {
-            self.inner.push_back((depth, item));
-        } else {
-            match item {
-                Ok(item) => {
-                    if unvisited(&mut self.visited, &item) {
-                        self.inner.push_back((depth, Ok(item.clone())));
-                    }
+        match item {
+            item if self.allow_circles => self.inner.push_back((depth, item)),
+            Ok(item) => {
+                if unvisited(&mut self.visited, &item) {
+                    self.inner.push_back((depth, Ok(item.clone())));
                 }
-                Err(err) => self.inner.push_back((depth, Err(err))),
             }
+            Err(err) => self.inner.push_back((depth, Err(err))),
         }
+        // if self.allow_circles {
+        //     self.inner.push_back((depth, item));
+        // } else {
+        //     match item {
+        //         Ok(item) => {
+        //             if unvisited(&mut self.visited, &item) {
+        //                 self.inner.push_back((depth, Ok(item.clone())));
+        //             }
+        //         }
+        //         Err(err) => self.inner.push_back((depth, Err(err))),
+        //     }
+        // }
     }
 
     #[inline]
@@ -140,7 +149,7 @@ impl<'a, Q> QueueWrapper<'a, Q> {
     }
 }
 
-impl<'a, I, E, Q> super::ExtendQueue<I, E> for QueueWrapper<'a, Q>
+impl<I, E, Q> super::ExtendQueue<I, E> for QueueWrapper<'_, Q>
 where
     Q: super::Queue<I, E>,
     I: Hash + Eq + Clone,

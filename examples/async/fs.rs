@@ -62,13 +62,10 @@ mod sealed {
                     let entries_stream = ReadDirStream::new(entries);
                     // create new nodes from the children
                     entries_stream
-                        .then(move |entry| async {
-                            async move {
-                                let entry = entry?;
-                                let file_type = entry.file_type().await?;
-                                Self::from_type(entry.path(), file_type)
-                            }
-                            .await
+                        .then(move |entry| async move {
+                            let entry = entry?;
+                            let file_type = entry.file_type().await?;
+                            Self::from_type(entry.path(), file_type)
                         })
                         .boxed()
                 }
@@ -120,7 +117,7 @@ async fn main() -> anyhow::Result<()> {
     bfs.for_each_concurrent(None, |node| {
         let stats = stats.clone();
         async move {
-            println!("{:?}", node);
+            println!("{node:?}");
             let mut stats = stats.lock().await;
             match node {
                 Ok(FsNode::Dir(_)) => stats.dirs += 1,

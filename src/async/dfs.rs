@@ -8,8 +8,6 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-#[derive(Default)]
-#[pin_project]
 /// Asynchronous depth-first stream for types implementing the [`Node`] trait.
 ///
 /// ### Example
@@ -60,6 +58,8 @@ use std::task::{Context, Poll};
 /// ```
 ///
 /// [`Node`]: trait@crate::async::Node
+#[derive(Default)]
+#[pin_project]
 pub struct Dfs<N>
 where
     N: Node,
@@ -214,12 +214,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::utils::test;
+    use super::Dfs;
     use anyhow::Result;
-    use futures::StreamExt;
-    use pretty_assertions::assert_eq;
-    use tokio::time::{sleep, Duration};
 
     macro_rules! depths {
         ($stream:ident) => {{
@@ -242,6 +238,9 @@ mod tests {
             paste::item! {
                 #[tokio::test(flavor = "multi_thread")]
                 async fn [< test_ $name _ unordered >] () -> Result<()> {
+                    use tokio::time::{sleep, Duration};
+                    use std::cmp::Ordering;
+                    use futures::StreamExt;
                     let (iter, expected_depths) = $values;
                     let iter = iter
                         .map(|node| async move {
@@ -250,7 +249,10 @@ mod tests {
                         })
                         .buffer_unordered(8);
                     let depths = depths!(iter);
-                    assert_eq!(depths, expected_depths);
+                    dbg!(&depths);
+                    dbg!(&expected_depths);
+                    assert!(crate::utils::test::is_monotonic(&depths, Ordering::Greater));
+                    crate::utils::test::assert_eq_sorted!(depths, expected_depths);
                     Ok(())
                 }
             }
@@ -262,6 +264,9 @@ mod tests {
             paste::item! {
                 #[tokio::test(flavor = "multi_thread")]
                 async fn [< test_ $name _ ordered >] () -> Result<()> {
+                    use tokio::time::{sleep, Duration};
+                    use std::cmp::Ordering;
+                    use futures::StreamExt;
                     let (iter, expected_depths) = $values;
                     let iter = iter
                         .map(|node| async move {
@@ -270,7 +275,8 @@ mod tests {
                         })
                         .buffered(8);
                     let depths = depths!(iter);
-                    assert_eq!(depths, expected_depths);
+                    assert!(crate::utils::test::is_monotonic(&depths, Ordering::Greater));
+                    similar_asserts::assert_eq!(depths, expected_depths);
                     Ok(())
                 }
             }
@@ -288,7 +294,7 @@ mod tests {
     test_depths!(
         dfs:
         (
-            Dfs::<test::Node>::new(0, 3, true),
+            Dfs::<crate::utils::test::Node>::new(0, 3, true),
             [1, 2, 3, 3, 2, 3, 3, 1, 2, 3, 3, 2, 3, 3]
         ),
         test_depths_ordered,
@@ -298,7 +304,7 @@ mod tests {
     test_depths!(
         dfs_no_circles:
         (
-            Dfs::<test::Node>::new(0, 3, false),
+            Dfs::<crate::utils::test::Node>::new(0, 3, false),
             [1, 2, 3]
         ),
         test_depths_ordered,

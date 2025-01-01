@@ -2,25 +2,25 @@
 pub mod test {
 
     #[allow(unused_macros)]
-    macro_rules! assert_eq_vec {
+    macro_rules! assert_eq_sorted {
         ($left:expr, $right:expr $(,)?) => {{
             let mut left = $left.clone();
             let mut right = $right.clone();
             left.sort_unstable();
             right.sort_unstable();
-            assert_eq!(left, right);
+            similar_asserts::assert_eq!(left, right);
         }};
         ($left:expr, $right:expr, $($arg:tt)+) => {{
             let mut left = $left.clone();
             let mut right = $right.clone();
             left.sort_unstable();
             right.sort_unstable();
-            assert_eq!(left, right, $($arg)+);
+            similar_asserts::assert_eq!(left, right, $($arg)+);
         }};
     }
 
     #[allow(unused_imports)]
-    pub(crate) use assert_eq_vec;
+    pub(crate) use assert_eq_sorted;
 
     #[derive(thiserror::Error, Hash, PartialEq, Eq, Clone, Debug)]
     #[error("error")]

@@ -2,8 +2,6 @@ use super::queue;
 use super::{ExtendQueue, FastNode, Node, Queue};
 use std::iter::Iterator;
 
-#[allow(clippy::module_name_repetitions)]
-#[derive(Debug, Clone)]
 /// Synchronous depth-first iterator for types implementing the [`Node`] trait.
 ///
 /// ### Example
@@ -41,6 +39,8 @@ use std::iter::Iterator;
 /// ```
 ///
 /// [`Node`]: trait@crate::sync::Node
+#[allow(clippy::module_name_repetitions)]
+#[derive(Debug, Clone)]
 pub struct Dfs<N>
 where
     N: Node,
@@ -179,11 +179,8 @@ where
         let mut queue = queue::Queue::new(allow_circles);
         let root: N = root.into();
         let max_depth = max_depth.into();
-        let depth = 1;
-        let mut depth_queue = queue::QueueWrapper::new(depth, &mut queue);
-        if let Err(err) = root.add_children(depth, &mut depth_queue) {
-            depth_queue.add(Err(err));
-        }
+        let mut depth_queue = queue::QueueWrapper::new(0, &mut queue);
+        depth_queue.add(Ok(root));
         Self { queue, max_depth }
     }
 }
@@ -229,15 +226,10 @@ mod par {
     parallel_iterator!(FastDfs<FastNode>);
 }
 
-#[cfg(feature = "rayon")]
-pub use par::*;
-
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::utils::test;
+    use super::{Dfs, FastDfs};
     use anyhow::Result;
-    use pretty_assertions::assert_eq;
 
     #[cfg(feature = "rayon")]
     use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -261,7 +253,7 @@ mod tests {
                 fn [< test_ $name _ serial >] () -> Result<()> {
                     let (iter, expected_depths) = $values;
                     let depths = depths!(iter);
-                    assert_eq!(depths, expected_depths);
+                    similar_asserts::assert_eq!(depths, expected_depths);
                     Ok(())
                 }
             }
@@ -277,7 +269,7 @@ mod tests {
                     let (iter, expected_depths) = $values;
                     let iter = iter.into_par_iter();
                     let depths = depths!(iter);
-                    test::assert_eq_vec!(depths, expected_depths);
+                    crate::utils::test::assert_eq_sorted!(depths, expected_depths);
                     Ok(())
                 }
             }
@@ -295,7 +287,7 @@ mod tests {
     test_depths!(
         dfs:
         (
-            Dfs::<test::Node>::new(0, 3, true),
+            Dfs::<crate::utils::test::Node>::new(0, 3, true),
             [1, 2, 3, 3, 2, 3, 3, 1, 2, 3, 3, 2, 3, 3]
         ),
         test_depths_serial,
@@ -305,7 +297,7 @@ mod tests {
     test_depths!(
         fast_dfs:
         (
-            FastDfs::<test::Node>::new(0, 3, true),
+            FastDfs::<crate::utils::test::Node>::new(0, 3, true),
             [1, 2, 3, 3, 2, 3, 3, 1, 2, 3, 3, 2, 3, 3]
         ),
         test_depths_serial,
@@ -315,7 +307,7 @@ mod tests {
     test_depths!(
         fast_dfs_no_circles:
         (
-            FastDfs::<test::Node>::new(0, 3, false),
+            FastDfs::<crate::utils::test::Node>::new(0, 3, false),
             [1, 2, 3]
         ),
         test_depths_serial,
@@ -324,7 +316,7 @@ mod tests {
     test_depths!(
         dfs_no_circles:
         (
-            Dfs::<test::Node>::new(0, 3, false),
+            Dfs::<crate::utils::test::Node>::new(0, 3, false),
             [1, 2, 3]
         ),
         test_depths_serial,

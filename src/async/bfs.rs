@@ -209,13 +209,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::utils::test;
+    use super::Bfs;
     use anyhow::Result;
-    use futures::StreamExt;
-    use pretty_assertions::assert_eq;
-    use std::cmp::Ordering;
-    use tokio::time::{sleep, Duration};
 
     macro_rules! depths {
         ($stream:ident) => {{
@@ -238,6 +233,9 @@ mod tests {
             paste::item! {
                 #[tokio::test(flavor = "multi_thread")]
                 async fn [< test_ $name _ unordered >] () -> Result<()> {
+                    use tokio::time::{sleep, Duration};
+                    use std::cmp::Ordering;
+                    use futures::StreamExt;
                     let (iter, expected_depths) = $values;
                     let iter = iter
                         .map(|node| async move {
@@ -246,8 +244,8 @@ mod tests {
                         })
                         .buffer_unordered(8);
                     let depths = depths!(iter);
-                    assert!(test::is_monotonic(&depths, Ordering::Greater));
-                    test::assert_eq_vec!(depths, expected_depths);
+                    assert!(crate::utils::test::is_monotonic(&depths, Ordering::Greater));
+                    crate::utils::test::assert_eq_sorted!(depths, expected_depths);
                     Ok(())
                 }
             }
@@ -259,6 +257,9 @@ mod tests {
             paste::item! {
                 #[tokio::test(flavor = "multi_thread")]
                 async fn [< test_ $name _ ordered >] () -> Result<()> {
+                    use tokio::time::{sleep, Duration};
+                    use std::cmp::Ordering;
+                    use futures::StreamExt;
                     let (iter, expected_depths) = $values;
                     let iter = iter
                         .map(|node| async move {
@@ -267,8 +268,8 @@ mod tests {
                         })
                         .buffered(8);
                     let depths = depths!(iter);
-                    assert!(test::is_monotonic(&depths, Ordering::Greater));
-                    assert_eq!(depths, expected_depths);
+                    assert!(crate::utils::test::is_monotonic(&depths, Ordering::Greater));
+                    similar_asserts::assert_eq!(depths, expected_depths);
                     Ok(())
                 }
             }
@@ -286,7 +287,7 @@ mod tests {
     test_depths!(
         bfs:
         (
-            Bfs::<test::Node>::new(0, 3, true),
+            Bfs::<crate::utils::test::Node>::new(0, 3, true),
             [1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3]
         ),
         test_depths_ordered,
@@ -296,7 +297,7 @@ mod tests {
     test_depths!(
         bfs_no_circles:
         (
-            Bfs::<test::Node>::new(0, 3, false),
+            Bfs::<crate::utils::test::Node>::new(0, 3, false),
             [1, 2, 3]
         ),
         test_depths_ordered,
